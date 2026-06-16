@@ -74,13 +74,16 @@ export default function CartPage() {
                 <span className="font-bold">{shipping === 0 ? <span className="text-green-600">חינם</span> : `₪${shipping}`}</span>
               </div>
               {shipping > 0 && <p className="text-[12px] text-slate-400">הוסף ₪{(500 - total).toLocaleString()} למשלוח חינם</p>}
-              <div className="border-t border-slate-100 pt-2 mt-2 flex justify-between text-[16px]">
+              <div className="border-t border-slate-100 pt-3 mt-3 flex justify-between items-baseline text-[16px]">
                 <span className="font-black">סה״כ</span>
-                <span className="price-num text-[20px]">₪{grandTotal.toLocaleString()}</span>
+                <span className="price-num text-[22px]">₪{grandTotal.toLocaleString()}</span>
               </div>
             </div>
-            <Link href="/checkout">
-              <button className="btn btn-primary w-full mt-4 py-3">לתשלום <ArrowLeft className="w-4 h-4" /></button>
+            <Link href="/checkout" className="block mt-6">
+              <button className="btn btn-primary w-full py-3.5 justify-center text-[15px]">לתשלום <ArrowLeft className="w-4 h-4" /></button>
+            </Link>
+            <Link href="/products" className="block mt-2">
+              <button className="btn btn-ghost w-full py-2.5 justify-center text-[13px]">המשך בקנייה</button>
             </Link>
           </div>
         </div>

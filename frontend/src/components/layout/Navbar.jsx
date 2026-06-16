@@ -69,9 +69,11 @@ export default function Navbar() {
               <Heart className="w-5 h-5 text-slate-500" />
               {wishlistIds.length > 0 && <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-red-500 text-white text-[9px] font-black rounded-full flex items-center justify-center">{wishlistIds.length > 9 ? '9+' : wishlistIds.length}</span>}
             </Link>
-            <Link href="/cart" className="relative w-9 h-9 flex items-center justify-center rounded-xl hover:bg-slate-100 transition-colors">
-              <ShoppingCart className="w-5 h-5 text-slate-500" />
-              {cartCount > 0 && <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-primary-600 text-white text-[9px] font-black rounded-full flex items-center justify-center">{cartCount > 9 ? '9+' : cartCount}</span>}
+            <Link href="/cart" className="relative flex items-center gap-1.5 h-9 px-3 rounded-xl text-white font-bold text-[13px] transition-all hover:shadow-md hover:-translate-y-0.5"
+              style={{ background:'linear-gradient(135deg,var(--primary),var(--primary-dark))', boxShadow:'0 2px 10px var(--primary-shadow)' }}>
+              <ShoppingCart className="w-4 h-4" />
+              <span className="hidden sm:inline">עגלה</span>
+              {cartCount > 0 && <span className="min-w-[18px] h-[18px] px-1 bg-white text-primary-700 text-[10px] font-black rounded-full flex items-center justify-center">{cartCount > 99 ? '99+' : cartCount}</span>}
             </Link>
 
             {user ? (

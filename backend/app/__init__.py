@@ -1,6 +1,7 @@
 import os
 from flask import Flask
 from flask_cors import CORS
+from flask import jsonify
 from flask_jwt_extended import JWTManager
 from dotenv import load_dotenv
 from .db import init_db
@@ -23,7 +24,26 @@ def create_app():
 
     # ── Extensions ───────────────────────────────────
     CORS(app, origins=os.getenv('CORS_ORIGINS', '*').split(','))
-    JWTManager(app)
+    
+    jwt = JWTManager(app)
+
+    @jwt.invalid_token_loader
+    def _invalid_token(reason):
+        print(f"[JWT] invalid token: {reason}")
+        return jsonify({'error': 'invalid_token', 'reason': reason}), 401
+    
+    @jwt.expired_token_loader
+    def _expired_token(jwt_header, jwt_payload):
+        return jsonify({'error': 'token_expired'}), 401
+    
+    @jwt.unauthorized_loader
+    def _missing_token(reason):
+        return jsonify({'error': 'authorization_required', 'reason': reason}), 401
+    
+    @jwt.needs_fresh_token_loader
+    def _needs_fresh(jwt_header, jwt_payload):
+        return jsonify({'error': 'fresh_token_required'}), 401
+
     init_db()
 
     # ── Blueprints ───────────────────────────────────

@@ -3,16 +3,19 @@ import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ShoppingCart, Check } from 'lucide-react'
 import useCartStore from '@/stores/cartStore'
+import useCartUiStore from '@/stores/cartUiStore'
 import toast from 'react-hot-toast'
 
 export default function AddToCartButton({ product }) {
   const addItem = useCartStore(s => s.addItem)
+  const openCart = useCartUiStore(s => s.openCart)
   const [added, setAdded] = useState(false)
 
   const handleAdd = (e) => {
     e.preventDefault()
     e.stopPropagation()
     addItem(product)
+    openCart()
     toast.success(`${product.name} נוסף לסל! 🛒`)
     setAdded(true)
     setTimeout(() => setAdded(false), 1800)

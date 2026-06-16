@@ -1,15 +1,16 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { Upload, FileJson, FileSpreadsheet, Check, Download, Database, Info } from 'lucide-react'
+import { Upload, FileJson, FileSpreadsheet, Check, Download, Database, Info, ChevronDown, ChevronUp } from 'lucide-react'
 import { productAdmin } from '@/services/productService'
 import toast from 'react-hot-toast'
-
 
 export default function AdminImport() {
   const [schema, setSchema] = useState(null)
   const [jsonText, setJsonText] = useState('')
   const [busy, setBusy] = useState(false)
   const [result, setResult] = useState(null)
+  const [overwriteSku, setOverwriteSku] = useState(false)
+  const [guideOpen, setGuideOpen] = useState(false)
 
   useEffect(() => { productAdmin.getImportSchema().then(setSchema).catch(() => {}) }, [])
 
@@ -20,7 +21,6 @@ export default function AdminImport() {
     schema.fields.forEach(f => { if (f.example !== undefined) obj[f.key] = f.example })
     return JSON.stringify([obj], null, 2)
   }
-
   const downloadExample = () => {
     const blob = new Blob([buildExample()], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
@@ -33,7 +33,7 @@ export default function AdminImport() {
     try { products = JSON.parse(jsonText) } catch { return toast.error('JSON לא תקין') }
     if (!Array.isArray(products)) return toast.error('צריך מערך של מוצרים')
     setBusy(true)
-    try { const r = await productAdmin.importJson(products); setResult(r); toast.success(`יובאו ${r.imported ?? products.length} מוצרים! 🎉`) }
+    try { const r = await productAdmin.importJson(products, overwriteSku); setResult(r); toast.success(`יובאו ${r.imported ?? products.length} מוצרים! 🎉`) }
     catch (e) { toast.error(e?.response?.data?.error || 'שגיאה בייבוא') } finally { setBusy(false) }
   }
   const importExcel = async (file) => {
@@ -46,7 +46,6 @@ export default function AdminImport() {
   const required = schema?.fields.filter(f => f.required) || []
   const optional = schema?.fields.filter(f => !f.required) || []
 
-
   return (
     <div className="p-6 lg:p-8 max-w-4xl">
       <h1 className="text-2xl font-black text-slate-900 mb-1">ייבוא מוצרים</h1>
@@ -54,8 +53,12 @@ export default function AdminImport() {
 
       {/* ── Guide dynamique des champs ── */}
       {schema && (
-        <div className="bg-white rounded-2xl border border-slate-100 p-6 mb-6">
-          <div className="flex items-center gap-2 mb-4"><Info className="w-5 h-5 text-primary-600" /><h2 className="font-bold text-slate-800">מבנה הקובץ — שדות נדרשים</h2></div>
+        <div className="bg-white rounded-2xl border border-slate-100 mb-6 overflow-hidden">
+          <button onClick={() => setGuideOpen(v => !v)} className="w-full flex items-center justify-between p-5">
+            <div className="flex items-center gap-2"><Info className="w-5 h-5 text-primary-600" /><h2 className="font-bold text-slate-800">מבנה הקובץ — שדות נדרשים</h2></div>
+            {guideOpen ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
+          </button>
+          {guideOpen && <div className="px-6 pb-6 border-t border-slate-50 pt-4">
 
           {/* Required */}
           <p className="text-[12px] font-black text-red-500 uppercase tracking-wide mb-2">חובה</p>
@@ -91,6 +94,7 @@ export default function AdminImport() {
           <button onClick={downloadExample} className="mt-4 flex items-center gap-2 text-[13px] font-bold text-primary-600 bg-primary-50 hover:bg-primary-100 px-4 py-2 rounded-xl transition-colors">
             <Download className="w-4 h-4" />הורד קובץ JSON לדוגמה
           </button>
+          </div>}
         </div>
       )}
 
@@ -122,6 +126,15 @@ export default function AdminImport() {
           <p className="text-[11px] text-slate-400 mt-2">השורה הראשונה = שמות העמודות (לפי השדות למעלה)</p>
         </div>
 
+        {/* Overwrite option */}
+        <div className="bg-white rounded-2xl border border-slate-100 p-4">
+          <p className="text-[13px] font-bold text-slate-700 mb-2">אם מק"ט כבר קיים:</p>
+          <div className="flex gap-2">
+            <button type="button" onClick={() => setOverwriteSku(false)} className={`flex-1 py-2.5 rounded-xl text-[13px] font-bold border-2 transition-all ${!overwriteSku ? 'border-primary-400 bg-primary-50 text-primary-700' : 'border-slate-200 text-slate-400'}`}>➕ צור חדש (דלג אם קיים)</button>
+            <button type="button" onClick={() => setOverwriteSku(true)} className={`flex-1 py-2.5 rounded-xl text-[13px] font-bold border-2 transition-all ${overwriteSku ? 'border-primary-400 bg-primary-50 text-primary-700' : 'border-slate-200 text-slate-400'}`}>🔄 עדכן מוצר קיים</button>
+          </div>
+        </div>
+
         <div className="bg-white rounded-2xl border border-slate-100 p-6">
           <div className="flex items-center gap-2 mb-3"><FileJson className="w-5 h-5 text-primary-600" /><h2 className="font-bold text-slate-800">ייבוא מ-JSON</h2></div>
           <textarea value={jsonText} onChange={e => setJsonText(e.target.value)} rows={8} dir="ltr" placeholder={schema ? buildExample() : '[{"name":"...","price":100}]'} className="input font-mono text-[12px] resize-none w-full mb-3" />
@@ -130,7 +143,7 @@ export default function AdminImport() {
 
         {result && (
           <div className="bg-green-50 border border-green-200 rounded-2xl p-4">
-            <div className="flex items-center gap-2 text-green-700 mb-1"><Check className="w-5 h-5" /><span className="text-[14px] font-bold">הייבוא הושלם — {result.imported} מוצרים נוספו</span></div>
+            <div className="flex items-center gap-2 text-green-700 mb-1"><Check className="w-5 h-5" /><span className="text-[14px] font-bold">הייבוא הושלם — {result.imported} נוספו{result.updated ? `, ${result.updated} עודכנו` : ''}</span></div>
             {result.errors?.length > 0 && <p className="text-[12px] text-amber-600">{result.errors.length} שגיאות (שורות שדולגו)</p>}
           </div>
         )}

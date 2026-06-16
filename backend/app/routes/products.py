@@ -279,20 +279,28 @@ def _save_photo(file) -> str:
 def import_json():
     if not _is_admin():
         return jsonify({'error': 'Admin only'}), 403
-    products_data = (request.get_json() or {}).get('products', [])
-    imported = 0
-    errors   = []
+    body = request.get_json() or {}
+    products_data = body.get('products', [])
+    overwrite = body.get('overwriteSku', False)
+    from app.db import get_db
+    col = get_db()['products']
+    imported, updated, errors = 0, 0, []
     for i, p in enumerate(products_data):
         try:
             if not p.get('name') or not p.get('price'):
-                errors.append({'row': i+1, 'error': 'Missing name or price'})
-                continue
+                errors.append({'row': i+1, 'error': 'Missing name or price'}); continue
+            sku = (p.get('sku') or '').strip()
+            if overwrite and sku:
+                existing = col.find_one({'sku': sku})
+                if existing:
+                    ProductModel.update_product(str(existing['_id']), p)
+                    updated += 1; continue
             ProductModel.create_product(p)
             imported += 1
         except Exception as e:
             errors.append({'row': i+1, 'error': str(e)})
-    return jsonify({'imported': imported, 'errors': errors})
-
+    return jsonify({'imported': imported, 'updated': updated, 'errors': errors})
+ 
 
 # ── POST /api/products/by-ids ─────────────────────────────────────────────────
 @products_bp.route('/by-ids', methods=['POST'])
@@ -311,3 +319,55 @@ def get_by_ids():
         except Exception:
             pass
     return jsonify({'products': results})
+
+
+@products_bp.route('/import-schema', methods=['GET'])
+def import_schema():
+    from app.db import get_db
+    db = get_db()
+    fields = [
+        {'key':'name',          'label':'שם המוצר',     'required':True,  'type':'text'},
+        {'key':'price',         'label':'מחיר',          'required':True,  'type':'number'},
+        {'key':'brand',         'label':'מותג',          'required':False, 'type':'text'},
+        {'key':'sku',           'label':'מק"ט',          'required':False, 'type':'text'},
+        {'key':'category',      'label':'קטגוריה',       'required':False, 'type':'text', 'default':'smartphones'},
+        {'key':'description',   'label':'תיאור',         'required':False, 'type':'text'},
+        {'key':'originalPrice', 'label':'מחיר מקורי',    'required':False, 'type':'number', 'note':'גבוה מהמחיר → מבצע'},
+        {'key':'supplierPrice', 'label':'מחיר ספק',      'required':False, 'type':'number', 'note':'פנימי — לא מוצג ללקוח'},
+        {'key':'stock',         'label':'מלאי',          'required':False, 'type':'number'},
+        {'key':'rating',        'label':'דירוג',         'required':False, 'type':'number'},
+        {'key':'reviewCount',   'label':'מספר ביקורות',  'required':False, 'type':'number'},
+        {'key':'isKosher',      'label':'כשר',           'required':False, 'type':'boolean', 'note':'yes/no, כן/לא'},
+        {'key':'isAccessory',   'label':'אביזר',         'required':False, 'type':'boolean'},
+        {'key':'isNew',         'label':'חדש',           'required':False, 'type':'boolean'},
+        {'key':'isTopRated',    'label':'מדורג גבוה',    'required':False, 'type':'boolean'},
+        {'key':'tags',          'label':'תגיות',         'required':False, 'type':'list'},
+        {'key':'selectedColors','label':'צבעים',         'required':False, 'type':'list'},
+        {'key':'selectedSizes', 'label':'מידות / אחסון', 'required':False, 'type':'list'},
+        {'key':'specs',         'label':'מפרט טכני',     'required':False, 'type':'object'},
+        {'key':'note',          'label':'הערת מנהל',     'required':False, 'type':'text'},
+        {'key':'images',        'label':'תמונות (URLs)', 'required':False, 'type':'list'},
+    ]
+    try:
+        cats   = sorted([c for c in db['products'].distinct('category') if c])
+        brands = sorted([b for b in db['products'].distinct('brand') if b])
+        tags   = sorted([t for t in db['products'].distinct('tags') if t])
+        total  = db['products'].count_documents({})
+    except Exception:
+        cats, brands, tags, total = [], [], [], 0
+    return jsonify({'fields': fields, 'existingCategories': cats,
+                    'existingBrands': brands, 'existingTags': tags, 'totalProducts': total})
+ 
+ 
+@products_bp.route('/admin/list', methods=['GET'])
+@jwt_required()
+def admin_list():
+    if not _is_admin():
+        return jsonify({'error': 'Admin only'}), 403
+    from app.db import get_db
+    col = get_db()['products']
+    products = [ProductModel.serialize(p, admin=True) for p in col.find().sort('createdAt', -1)]
+    return jsonify({'products': products, 'total': len(products)})
+ 
+
+

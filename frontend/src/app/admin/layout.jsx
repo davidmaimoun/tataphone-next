@@ -2,13 +2,14 @@
 import { useEffect, useState } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import Link from 'next/link'
-import { LayoutDashboard, Package, ShoppingBag, Users, LogOut, Tag, Upload, Mail, Home } from 'lucide-react'
+import { LayoutDashboard, Package, ShoppingBag, Users, LogOut, Tag, Upload, Mail, Home, Wallet } from 'lucide-react'
 import useAuthStore from '@/stores/authStore'
 
 const NAV = [
   { href: '/admin',          label: 'דאשבורד',  icon: LayoutDashboard },
   { href: '/admin/products', label: 'מוצרים',    icon: Package },
   { href: '/admin/orders',   label: 'הזמנות',    icon: ShoppingBag },
+  { href: '/admin/accounting', label: 'חשבונאות', icon: Wallet },
   { href: '/admin/users',    label: 'משתמשים',   icon: Users },
   { href: '/admin/promotions', label: 'מבצעים',   icon: Tag },
   { href: '/admin/messages', label: 'הודעות',     icon: Mail },

@@ -103,7 +103,7 @@ export default function AdminProducts() {
   const [search, setSearch] = useState('')
   const [modal, setModal] = useState(null)
 
-  const load = () => { setLoading(true); productService.getAll({ limit: 9999 }).then(d => setProducts(d.products || [])).catch(() => {}).finally(() => setLoading(false)) }
+  const load = async () => { setLoading(true); try { const { default: api } = await import('@/services/api'); const r = await api.get('/products/admin/list'); setProducts(r.data.products || []) } catch { productService.getAll({ limit: 9999 }).then(d => setProducts(d.products || [])) } finally { setLoading(false) } }
   useEffect(() => { load() }, [])
 
   const handleDelete = async (id, name) => {
@@ -181,7 +181,7 @@ function ProductModal({ product, onClose, onSave }) {
     selectedSizes: Array.isArray(product.sizes) ? product.sizes : [],
     tags: Array.isArray(product.tags) ? product.tags : [],
     isKosher: product.isKosher !== false,
-  } : { name:'', brand:'', sku:'', category:'', description:'', price:'', originalPrice:'', stock:0, selectedColors:[], selectedSizes:[], tags:[], isKosher:true })
+  } : { name:'', brand:'', sku:'', category:'', description:'', price:'', originalPrice:'', supplierPrice:'', stock:0, selectedColors:[], selectedSizes:[], tags:[], isKosher:true })
   const [photos, setPhotos] = useState((product?.images || []).map((url, i) => ({ url, isMain: i === 0, file: null })))
   const set = k => e => setForm(p => ({ ...p, [k]: e.target.value }))
 
@@ -214,7 +214,7 @@ function ProductModal({ product, onClose, onSave }) {
     e.preventDefault(); setSaving(true)
     try {
       const fd = new FormData()
-      const TEXT = ['name','brand','sku','category','description','price','originalPrice','stock']
+      const TEXT = ['name','brand','sku','category','description','price','originalPrice','supplierPrice','stock']
       TEXT.forEach(k => { const v = form[k]; if (v !== undefined && v !== null) fd.append(k, v) })
       fd.append('colors', JSON.stringify(form.selectedColors || []))
       fd.append('sizes', JSON.stringify(form.selectedSizes || []))
@@ -299,6 +299,12 @@ function ProductModal({ product, onClose, onSave }) {
           <div className="grid grid-cols-2 gap-4">
             <div><label className="block text-xs font-bold text-slate-500 mb-1.5">מחיר (₪) *</label><input type="number" min="0" value={form.price || ''} onChange={set('price')} required className="input text-sm" /></div>
             <div><label className="block text-xs font-bold text-slate-500 mb-1.5">מחיר מקורי</label><input type="number" min="0" value={form.originalPrice || ''} onChange={set('originalPrice')} className="input text-sm" placeholder="אופציונלי" /></div>
+          </div>
+
+          {/* Prix fournisseur — usage interne */}
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-3">
+            <label className="block text-xs font-bold text-amber-700 mb-1.5">🔒 מחיר ספק <span className="font-normal text-amber-600">(פנימי — לא מוצג ללקוח)</span></label>
+            <input type="number" min="0" value={form.supplierPrice || ''} onChange={set('supplierPrice')} className="input text-sm max-w-[200px]" placeholder="עלות מהספק" />
           </div>
 
           {/* Description */}

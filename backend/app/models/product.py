@@ -234,10 +234,10 @@ def delete_product(product_id: str):
     get_collection().delete_one({'_id': ObjectId(product_id)})
 
 
-def serialize(p: dict) -> dict:
+def serialize(p: dict, admin: bool = False) -> dict:
     if not p:
         return {}
-    return {
+    out = {
         '_id':           str(p['_id']),
         'name':          p.get('name'),
         'brand':         p.get('brand'),
@@ -258,8 +258,11 @@ def serialize(p: dict) -> dict:
         'colors':        p.get('colors', []),
         'note':          p.get('note', ''),
         'sizes':         p.get('sizes', []),
-        'isKosher':      p.get('isKosher', p.get('is_kosher', True)),
-        'isAccessory':   p.get('isAccessory', p.get('is_accessory', False)),
+        'isKosher':      p.get('isKosher', True),
+        'isAccessory':   p.get('isAccessory', False),
         'createdAt':     p['createdAt'].isoformat() if p.get('createdAt') else '',
         'updatedAt':     p['updatedAt'].isoformat() if p.get('updatedAt') else '',
     }
+    if admin:
+        out['supplierPrice'] = p.get('supplierPrice')   # interne, admin only
+    return out

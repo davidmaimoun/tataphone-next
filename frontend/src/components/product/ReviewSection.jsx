@@ -80,7 +80,7 @@ export default function ReviewSection({ productId }) {
   }
 
   return (
-    <div className="mt-14 pt-10 border-t-2 border-slate-100">
+    <div className="mt-4 pt-8 border-t-2 border-slate-100">
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
           <div className="w-1 h-8 rounded-full bg-primary-600" />

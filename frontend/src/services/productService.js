@@ -62,7 +62,7 @@ export const productAdmin = {
   async create(payload) { const { default: api } = await import('./api'); return api.post('/products/', payload).then(r => r.data) },
   async update(id, payload) { const { default: api } = await import('./api'); return api.put(`/products/${id}`, payload).then(r => r.data) },
   async remove(id) { const { default: api } = await import('./api'); return api.delete(`/products/${id}`).then(r => r.data) },
-  async importJson(products) { const { default: api } = await import('./api'); return api.post('/products/import-json', { products }).then(r => r.data) },
+  async importJson(products, overwriteSku = false) { const { default: api } = await import('./api'); return api.post('/products/import-json', { products, overwriteSku }).then(r => r.data) },
   async importExcel(formData) { const { default: api } = await import('./api'); return api.post('/products/import', formData).then(r => r.data) },
   async uploadPhotos(id, formData) { const { default: api } = await import('./api'); return api.post(`/products/${id}/photos`, formData).then(r => r.data) },
 }
