@@ -6,39 +6,22 @@ const useCartStore = create(
   persist(
     (set, get) => ({
       items: [],
-
-      addItem: (product, qty = 1) => set((state) => {
+      addItem: (product, qty = 1) => set(state => {
         const existing = state.items.find(i => i._id === product._id)
-        if (existing) {
-          return {
-            items: state.items.map(i =>
-              i._id === product._id ? { ...i, qty: i.qty + qty } : i
-            ),
-          }
-        }
+        if (existing) return { items: state.items.map(i => i._id === product._id ? { ...i, qty: i.qty + qty } : i) }
         return { items: [...state.items, { ...product, qty }] }
       }),
-
-      removeItem: (id) => set((state) => ({
-        items: state.items.filter(i => i._id !== id),
-      })),
-
-      updateQty: (id, qty) => set((state) => ({
-        items: state.items.map(i =>
-          i._id === id ? { ...i, qty: Math.max(1, qty) } : i
-        ),
-      })),
-
-      clear: () => set({ items: [] }),
-
-      get total() {
-        return get().items.reduce((sum, i) => sum + i.price * i.qty, 0)
+      removeItem: (id) => set(s => ({ items: s.items.filter(i => i._id !== id) })),
+      updateQty: (id, qty) => {
+        if (qty < 1) { get().removeItem(id); return }
+        set(s => ({ items: s.items.map(i => i._id === id ? { ...i, qty } : i) }))
       },
-      get count() {
-        return get().items.reduce((sum, i) => sum + i.qty, 0)
-      },
+      clearCart: () => set({ items: [] }),
+      getCount: () => get().items.reduce((s, i) => s + i.qty, 0),
+      getTotal: () => get().items.reduce((s, i) => s + i.price * i.qty, 0),
+      getDiscount: () => get().items.reduce((s, i) => i.originalPrice > i.price ? s + (i.originalPrice - i.price) * i.qty : s, 0),
     }),
-    { name: 'tataphone-cart' }
+    { name: 'tataphone-cart', partialize: (s) => ({ items: s.items }) }
   )
 )
 

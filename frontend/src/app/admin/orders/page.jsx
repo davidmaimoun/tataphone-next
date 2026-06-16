@@ -9,7 +9,7 @@ export default function AdminOrders() {
 
   useEffect(() => {
     api.get('/orders/')
-      .then(d => setOrders(Array.isArray(d) ? d : (d.orders || [])))
+      .then(r => { const d = r.data; setOrders(Array.isArray(d) ? d : (d.orders || [])) })
       .catch(() => toast.error('שגיאה בטעינת הזמנות'))
       .finally(() => setLoading(false))
   }, [])

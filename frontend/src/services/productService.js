@@ -42,6 +42,11 @@ const productService = {
     return data || { products: [] }
   },
 
+  async getRelated(id) {
+    const data = await apiGet(`/products/${id}/related`)
+    return data || { products: [] }
+  },
+
   async getAllIds() {
     const data = await apiGet(withQuery('/products/', { limit: 9999 }), { revalidate: 3600 })
     return data?.products?.map(p => p._id) || []
@@ -49,3 +54,15 @@ const productService = {
 }
 
 export default productService
+
+// ── Admin mutations (client-side, via axios api) ──
+// Importé dynamiquement pour éviter d'inclure axios dans le bundle SSR.
+export const productAdmin = {
+  async getImportSchema() { const { default: api } = await import('./api'); return api.get('/products/import-schema').then(r => r.data) },
+  async create(payload) { const { default: api } = await import('./api'); return api.post('/products/', payload).then(r => r.data) },
+  async update(id, payload) { const { default: api } = await import('./api'); return api.put(`/products/${id}`, payload).then(r => r.data) },
+  async remove(id) { const { default: api } = await import('./api'); return api.delete(`/products/${id}`).then(r => r.data) },
+  async importJson(products) { const { default: api } = await import('./api'); return api.post('/products/import-json', { products }).then(r => r.data) },
+  async importExcel(formData) { const { default: api } = await import('./api'); return api.post('/products/import', formData).then(r => r.data) },
+  async uploadPhotos(id, formData) { const { default: api } = await import('./api'); return api.post(`/products/${id}/photos`, formData).then(r => r.data) },
+}

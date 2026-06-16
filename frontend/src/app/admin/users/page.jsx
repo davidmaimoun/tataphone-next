@@ -9,7 +9,7 @@ export default function AdminUsers() {
 
   useEffect(() => {
     api.get('/users/')
-      .then(d => setUsers(Array.isArray(d) ? d : (d.users || [])))
+      .then(r => { const d = r.data; setUsers(Array.isArray(d) ? d : (d.users || [])) })
       .catch(() => toast.error('שגיאה בטעינת משתמשים'))
       .finally(() => setLoading(false))
   }, [])

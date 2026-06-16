@@ -8,7 +8,7 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     api.get('/users/analytics/stats?range=30d')
-      .then(setStats)
+      .then(r => setStats(r.data))
       .catch(() => setStats(null))
   }, [])
 

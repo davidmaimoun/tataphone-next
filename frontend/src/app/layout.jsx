@@ -2,6 +2,7 @@ import './globals.css'
 import { Rubik, Space_Grotesk } from 'next/font/google'
 import { Toaster } from 'react-hot-toast'
 import PublicChrome from '@/components/layout/PublicChrome'
+import WhatsAppButton from '@/components/ui/WhatsAppButton'
 
 const rubik = Rubik({
   subsets: ['hebrew', 'latin'],
@@ -43,6 +44,7 @@ export default function RootLayout({ children }) {
     <html lang="he" dir="rtl" data-theme="orange" className={`${rubik.variable} ${grotesk.variable}`}>
       <body className="flex flex-col min-h-screen">
         <PublicChrome>{children}</PublicChrome>
+        <WhatsAppButton />
         <Toaster position="top-center" toastOptions={{ duration: 2500 }} />
       </body>
     </html>

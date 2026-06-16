@@ -3,6 +3,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { Trash2, Plus, Minus, ShoppingBag, ArrowLeft } from 'lucide-react'
 import useCartStore from '@/stores/cartStore'
+import LastMinuteSection from '@/components/ui/LastMinuteSection'
 
 export default function CartPage() {
   const items = useCartStore(s => s.items)
@@ -29,6 +30,9 @@ export default function CartPage() {
   return (
     <main className="min-h-screen max-w-7xl mx-auto px-3 sm:px-6 lg:px-10 py-8">
       <h1 className="text-2xl sm:text-3xl font-black text-slate-900 mb-6">עגלת קניות ({items.length})</h1>
+
+      <LastMinuteSection compact />
+
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Items */}

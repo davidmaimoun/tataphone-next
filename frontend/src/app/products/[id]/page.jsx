@@ -1,6 +1,8 @@
 import { notFound } from 'next/navigation'
 import productService from '@/services/productService'
 import ProductDetailClient from './ProductDetailClient'
+import ReviewSection from '@/components/product/ReviewSection'
+import RelatedProducts from '@/components/product/RelatedProducts'
 
 // ════════════════════════════════════════════════════════════
 // SERVER COMPONENT — s'exécute sur le serveur.
@@ -81,6 +83,10 @@ export default async function ProductPage({ params }) {
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       {/* La partie interactive (galerie, panier) = client component */}
       <ProductDetailClient product={product} />
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-10 pb-16">
+        <ReviewSection productId={product._id} />
+        <RelatedProducts productId={product._id} />
+      </div>
     </>
   )
 }
