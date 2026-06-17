@@ -1,5 +1,5 @@
 'use client'
-import { Suspense, useEffect, useState } from 'react'
+import { Suspense, useEffect, useState, useRef } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
@@ -14,7 +14,10 @@ function VerifyInner() {
   const [status, setStatus] = useState('loading')
   const [error, setError] = useState('')
 
+  const ran = useRef(false)
   useEffect(() => {
+    if (ran.current) return
+    ran.current = true
     const token = params.get('token')
     if (!token) { setStatus('error'); setError('קישור לא תקין'); return }
     authService.verifyEmail(token)

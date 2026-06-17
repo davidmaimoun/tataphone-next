@@ -41,10 +41,19 @@ def create_order():
     user_id = _get_user_id()
     if user_id:
         data['userId'] = user_id
+
+    # AJOUT : flag commande test (le bouton test du checkout envoie paymentMethod='test')
+    data['isTest'] = (data.get('paymentMethod') == 'test')
+
     for item in data.get('items', []):
         p = ProductModel.get_by_id(item.get('product', ''))
         if p:
             item['name'] = p.get('name', '')
+            # AJOUT : on fige le prix fournisseur dans la commande (pour la compta)
+            try:
+                item['supplierPrice'] = float(p.get('supplierPrice') or 0)
+            except (TypeError, ValueError):
+                item['supplierPrice'] = 0
     order = OrderModel.create_order(data)
 
     # Send HTML confirmation
@@ -81,6 +90,88 @@ def stats():
     return jsonify(s)
 
 
+# ── GET /api/orders/accounting?month=YYYY-MM — RAPPORT COMPTABLE (AJOUT) ──────
+@orders_bp.route('/accounting', methods=['GET'])
+@jwt_required()
+def accounting():
+    if not _is_admin():
+        return jsonify({'error': 'Admin only'}), 403
+    from app.db import get_db
+    from bson import ObjectId
+    import datetime
+
+    month        = request.args.get('month')                       # 'YYYY-MM'
+    include_test = request.args.get('includeTest') == 'true'
+    now = datetime.datetime.utcnow()
+    if month:
+        try:
+            y, m = map(int, month.split('-'))
+        except Exception:
+            y, m = now.year, now.month
+    else:
+        y, m = now.year, now.month
+    start = datetime.datetime(y, m, 1)
+    end   = datetime.datetime(y + (m // 12), (m % 12) + 1, 1)
+
+    db = get_db()
+    q = {'createdAt': {'$gte': start, '$lt': end}}
+    if not include_test:
+        q['isTest'] = {'$ne': True}
+
+    orders = list(db['orders'].find(q))
+
+    supplier_cache = {}
+    def supplier_of(item):
+        sp = item.get('supplierPrice')
+        if sp is not None:
+            try: return float(sp)
+            except (TypeError, ValueError): return 0
+        pid = item.get('product', '')
+        if pid in supplier_cache:
+            return supplier_cache[pid]
+        val = 0
+        try:
+            prod = db['products'].find_one({'_id': ObjectId(pid)})
+            if prod:
+                val = float(prod.get('supplierPrice') or 0)
+        except Exception:
+            val = 0
+        supplier_cache[pid] = val
+        return val
+
+    revenue = 0.0
+    supplier_cost = 0.0
+    product_stats = {}
+    for o in orders:
+        for it in o.get('items', []):
+            qty   = int(it.get('qty', 1) or 1)
+            price = float(it.get('price', 0) or 0)
+            sup   = supplier_of(it)
+            revenue       += price * qty
+            supplier_cost += sup * qty
+            key = it.get('name', '—')
+            if key not in product_stats:
+                product_stats[key] = {'name': key, 'qty': 0, 'revenue': 0.0, 'supplierCost': 0.0}
+            product_stats[key]['qty']          += qty
+            product_stats[key]['revenue']      += price * qty
+            product_stats[key]['supplierCost'] += sup * qty
+
+    products = sorted(product_stats.values(), key=lambda x: x['qty'], reverse=True)
+    for p in products:
+        p['revenue']      = round(p['revenue'], 2)
+        p['supplierCost'] = round(p['supplierCost'], 2)
+        p['profit']       = round(p['revenue'] - p['supplierCost'], 2)
+
+    return jsonify({
+        'month':        f'{y:04d}-{m:02d}',
+        'orderCount':   len(orders),
+        'revenue':      round(revenue, 2),
+        'supplierCost': round(supplier_cost, 2),
+        'profit':       round(revenue - supplier_cost, 2),
+        'products':     products,
+    })
+
+
 @orders_bp.route('/mine', methods=['GET'])
 @jwt_required()
 def my_orders():
@@ -105,7 +196,6 @@ def update_status(order_id):
         OrderModel.update_status(order_id, status)
     except ValueError as e:
         return jsonify({'error': str(e)}), 400
-    # Send status update email
     try:
         order = OrderModel.get_by_id(order_id)
         if order:
@@ -168,7 +258,6 @@ def download_invoice(order_id):
     if not order:
         return jsonify({'error': 'Not found'}), 404
 
-    # Allow: admin OR the order owner
     is_admin = get_jwt().get('role') == 'admin'
     is_owner = str(order.get('userId', '')) == str(current_user)
     if not is_admin and not is_owner:
@@ -210,7 +299,7 @@ def _send_status_email(order: dict, status: str):
     STATUS_CFG = {
         'אושר':  ('ההזמנה אושרה! ✅', '🎉', '#059669', 'ההזמנה שלך אושרה ומוכנה לשליחה.'),
         'נשלח':  ('ההזמנה נשלחה! 🚚', '📦', '#2563EB', 'ההזמנה בדרך! צפה לקבל אותה תוך 2-4 ימי עסקים.'),
-        'הושלם': ('ההזמנה הושלמה! 🎊', '🎊', '#7C3AED', 'תודה שקנית בטטהפון! נשמח לראותך שוב.'),
+        'הושלם': ('ההזמנה הושלמה! 🎊', '🎊', '#7C3AED', 'תודה שקנית בטאטעפון! נשמח לראותך שוב.'),
         'בוטל':  ('ההזמנה בוטלה ❌', '❌', '#DC2626', 'ההזמנה שלך בוטלה. לשאלות פנה אלינו.'),
     }
     if status not in STATUS_CFG:
@@ -219,7 +308,7 @@ def _send_status_email(order: dict, status: str):
     title, emoji, color, desc = STATUS_CFG[status]
     thanks = ""
     if status == 'הושלם':
-        thanks = "<div style='background:#F0FDF4;border-radius:10px;padding:14px 16px;margin:14px 0;border:1px solid #BBF7D0;'><p style='font-size:13px;font-weight:700;color:#065F46;margin:0 0 4px;'>תודה שבחרת בטטהפון!</p><p style='font-size:13px;color:#374151;margin:0;'>אנו שמחים לשרת אותך ומקווים לראותך שוב בקרוב.</p></div>"
+        thanks = "<div style='background:#F0FDF4;border-radius:10px;padding:14px 16px;margin:14px 0;border:1px solid #BBF7D0;'><p style='font-size:13px;font-weight:700;color:#065F46;margin:0 0 4px;'>תודה שבחרת בטאטעפון!</p><p style='font-size:13px;color:#374151;margin:0;'>אנו שמחים לשרת אותך ומקווים לראותך שוב בקרוב.</p></div>"
     order_btn = _btn(f"{APP_URL}/my-orders", "צפה בהזמנות שלי") if order.get('userId') else ""
 
     html = _wrap(
@@ -228,13 +317,13 @@ def _send_status_email(order: dict, status: str):
         f"<h2 style='font-size:22px;font-weight:900;color:#0F172A;margin:12px 0 8px;'>{title}</h2>"
         f"<p style='font-size:14px;color:#64748B;'>הזמנה <strong style='color:{color};'>#{oid}</strong></p>"
         f"</div>"
-        f"<div style='background:#F8FAFF;border-radius:10px;padding:16px 20px;margin:16px 0;text-align:right;'>"
+        f"<div style='background:#FAF3EF;border-radius:10px;padding:16px 20px;margin:16px 0;text-align:right;'>"
         f"<p style='font-size:14px;color:#374151;line-height:1.7;'>שלום {name},<br>{desc}</p>"
         f"</div>"
         f"{thanks}"
         f"{order_btn}"
         f"<div style='margin-top:20px;padding-top:16px;border-top:1px solid #F1F5F9;font-size:12px;color:#94A3B8;text-align:center;'>"
-        f"שאלות? <a href='mailto:info@tataphone.co.il' style='color:#2563EB;'>info@tataphone.co.il</a>"
+        f"שאלות? <a href='mailto:info@tataphone.co.il' style='color:#CC785C;'>info@tataphone.co.il</a>"
         f"</div>"
     )
     send_email(to, f"הזמנה #{oid} — {title}", html)
@@ -257,14 +346,12 @@ def paypal_create():
     if not client_id or not secret:
         return jsonify({'error': 'PayPal not configured'}), 500
 
-    # Get access token
     token_resp = req.post(f'{base}/v1/oauth2/token',
         auth=(client_id, secret),
         data={'grant_type': 'client_credentials'})
     access_token = token_resp.json().get('access_token')
 
-    # Create order
-    app_url = os.getenv('APP_URL', 'http://localhost:5173')
+    app_url = os.getenv('APP_URL', 'http://localhost:3000')
     pp_resp = req.post(f'{base}/v2/checkout/orders',
         headers={'Authorization': f'Bearer {access_token}', 'Content-Type': 'application/json'},
         json={
@@ -326,7 +413,7 @@ def payplus_create():
 
     api_key    = os.getenv('PAYPLUS_API_KEY', '')
     secret_key = os.getenv('PAYPLUS_SECRET_KEY', '')
-    app_url    = os.getenv('APP_URL', 'http://localhost:5173')
+    app_url    = os.getenv('APP_URL', 'http://localhost:3000')
 
     if not api_key or not secret_key:
         return jsonify({'error': 'PayPlus not configured'}), 500

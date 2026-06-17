@@ -69,11 +69,13 @@ export default function Navbar() {
               <Heart className="w-5 h-5 text-slate-500" />
               {wishlistIds.length > 0 && <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-red-500 text-white text-[9px] font-black rounded-full flex items-center justify-center">{wishlistIds.length > 9 ? '9+' : wishlistIds.length}</span>}
             </Link>
-            <Link href="/cart" className="relative flex items-center gap-1.5 h-9 px-3 rounded-xl text-white font-bold text-[13px] transition-all hover:shadow-md hover:-translate-y-0.5"
-              style={{ background:'linear-gradient(135deg,var(--primary),var(--primary-dark))', boxShadow:'0 2px 10px var(--primary-shadow)' }}>
-              <ShoppingCart className="w-4 h-4" />
+            <Link href="/cart" className="relative flex items-center gap-2 h-9 ps-2 pe-3 rounded-full font-bold text-[13px] transition-all hover:-translate-y-0.5 hover:shadow-md"
+              style={{ background:'var(--primary-pale)', border:'1.5px solid var(--primary-border)', color:'var(--primary-deep)' }}>
+              <span className="flex items-center justify-center w-6 h-6 rounded-full" style={{ background:'linear-gradient(135deg,var(--primary),var(--primary-dark))', boxShadow:'0 2px 6px var(--primary-shadow)' }}>
+                <ShoppingCart className="w-3.5 h-3.5 text-white" />
+              </span>
               <span className="hidden sm:inline">עגלה</span>
-              {cartCount > 0 && <span className="min-w-[18px] h-[18px] px-1 bg-white text-primary-700 text-[10px] font-black rounded-full flex items-center justify-center">{cartCount > 99 ? '99+' : cartCount}</span>}
+              {cartCount > 0 && <span className="min-w-[18px] h-[18px] px-1 text-white text-[10px] font-black rounded-full flex items-center justify-center" style={{ background:'var(--primary)' }}>{cartCount > 99 ? '99+' : cartCount}</span>}
             </Link>
 
             {user ? (

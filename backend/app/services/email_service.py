@@ -23,6 +23,8 @@ SMTP_PORT   = int(os.getenv("SMTP_PORT", 587))
 SMTP_USER   = os.getenv("SMTP_USER",   "")
 SMTP_PASS   = os.getenv("SMTP_PASS",   "")
 ADMIN_EMAIL = os.getenv("ADMIN_EMAIL", "")
+LOGO_URL = os.getenv("LOGO_URL", f"{APP_URL}/logo.png")
+
 FROM_NAME   = "Tataphone"
 
 # ── Palette terracotta (couleurs du site) ────────────────────────────────────
@@ -73,20 +75,31 @@ def _wrap(content: str) -> str:
 <html dir="rtl" lang="he">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
 <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
 </head>
 <body style="margin:0;padding:0;background:{C_BG};">
 <div style="font-family:'Heebo',Arial,sans-serif;max-width:560px;margin:0 auto;padding:28px 16px;background:{C_BG};">
-  <div style="background:linear-gradient(135deg,{C_PRIMARY_DEEP} 0%,{C_PRIMARY} 100%);border-radius:16px;padding:24px 28px;margin-bottom:20px;text-align:right;">
-    <div style="display:inline-flex;align-items:center;gap:10px;margin-bottom:6px;">
-      <div style="width:36px;height:36px;background:rgba(255,255,255,0.22);border-radius:10px;display:inline-flex;align-items:center;justify-content:center;font-size:18px;">📱</div>
-      <span style="font-size:24px;font-weight:900;color:#fff;letter-spacing:-0.5px;">טאטע<span style="color:{C_PRIMARY_PALE};">פון</span></span>
+ 
+  <!-- Header : fond blanc + bordure terracotta, logo image + fallback texte -->
+  <div style="background:#ffffff;border:1px solid #EADFD8;border-top:4px solid {C_PRIMARY};border-radius:16px;padding:22px 24px;margin-bottom:20px;text-align:center;">
+    <a href="{APP_URL}" style="text-decoration:none;">
+      <!-- Logo image (URL absolue) -->
+      <img src="{LOGO_URL}" alt="טאטעפון" height="40"
+           style="height:40px;width:auto;display:inline-block;border:0;outline:none;text-decoration:none;" />
+    </a>
+    <!-- Fallback texte (visible si l'image ne charge pas) : terracotta sur blanc -->
+    <div style="margin-top:8px;">
+      <span style="font-size:13px;color:{C_PRIMARY_DEEP};font-weight:700;">הטכנולוגיה הכשרה שלך 📱</span>
     </div>
-    <p style="font-size:12px;color:{C_PRIMARY_PALE};margin:0;font-weight:500;">הטכנולוגיה הכשרה שלך</p>
   </div>
+ 
+  <!-- Contenu -->
   <div style="background:#ffffff;border-radius:16px;padding:28px 28px;border:1px solid #EADFD8;box-shadow:0 4px 24px rgba(157,75,46,0.08);direction:rtl;text-align:right;">
     {content}
   </div>
+ 
+  <!-- Footer -->
   <div style="text-align:center;margin-top:20px;padding:0 16px;">
     <p style="font-size:12px;color:#A1887A;margin:0;line-height:1.8;">
       © 2026 Tataphone Ltd &nbsp;·&nbsp;
@@ -97,7 +110,7 @@ def _wrap(content: str) -> str:
 </div>
 </body>
 </html>"""
-
+ 
 def _btn(url, label, color=C_PRIMARY):
     return f'<div style="text-align:right;margin:18px 0;"><a href="{url}" style="display:inline-block;background:{color};color:#fff;padding:13px 28px;border-radius:12px;font-size:14px;font-weight:700;text-decoration:none;">{label} &larr;</a></div>'
 

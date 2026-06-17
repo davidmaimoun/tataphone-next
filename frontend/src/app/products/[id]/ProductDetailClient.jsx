@@ -4,6 +4,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { Star, ShoppingCart, Check, Heart, Truck, RotateCcw, Shield, ChevronLeft, Info } from 'lucide-react'
 import useCartStore from '@/stores/cartStore'
+import useCartUiStore from '@/stores/cartUiStore'
 import useWishlistStore from '@/stores/wishlistStore'
 import useAuthStore from '@/stores/authStore'
 import { colorToCss, isLight } from '@/utils/colorUtils'
@@ -24,6 +25,7 @@ function ColorSwatch({ name, selected, onClick }) {
 
 export default function ProductDetailClient({ product }) {
   const addItem = useCartStore(s => s.addItem)
+  const openCart = useCartUiStore(s => s.openCart)
   const toggle = useWishlistStore(s => s.toggle)
   const liked = useWishlistStore(s => s.ids.includes(product._id))
   const user = useAuthStore(s => s.user)
@@ -56,6 +58,7 @@ export default function ProductDetailClient({ product }) {
 
   const handleAdd = () => {
     addItem(product, qty)
+    openCart()
     toast.success('נוסף לסל! 🛒')
     setAdded(true); setTimeout(() => setAdded(false), 1600)
   }
