@@ -13,8 +13,7 @@ export default function ProductCard({ product, forceNew = false }) {
 
   return (
     <Link href={`/products/${_id}`}
-      className="flex flex-col h-full w-full overflow-hidden rounded-2xl bg-white border border-slate-100
-                 hover:border-primary-200 hover:shadow-[0_8px_32px_rgba(0,0,0,0.10)] transition-all duration-250 group">
+      className="product-card flex flex-col h-full w-full overflow-hidden group">
 
       {/* Image */}
       <div className="relative flex-shrink-0 overflow-hidden bg-slate-50" style={{ height: 180 }}>

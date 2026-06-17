@@ -16,7 +16,7 @@ export default async function RelatedProducts({ productId }) {
         <div className="w-1 h-8 rounded-full bg-primary-600" />
         <h2 className="font-black text-2xl text-slate-900">מוצרים דומים</h2>
       </div>
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-4 items-stretch">
+      <div className="products-grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 items-stretch">
         {related.slice(0, 4).map(p => <ProductCard key={p._id} product={p} />)}
       </div>
     </div>

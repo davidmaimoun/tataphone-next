@@ -126,11 +126,11 @@ function ProductsInner() {
       </div>
 
       {loading ? (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-1 sm:gap-3">{Array.from({length:8}).map((_,i) => <div key={i} className="bg-white rounded-2xl border border-slate-100 animate-pulse" style={{height:300}} />)}</div>
+        <div className="products-grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4">{Array.from({length:8}).map((_,i) => <div key={i} className="bg-white/60 rounded-2xl animate-pulse" style={{height:300}} />)}</div>
       ) : filtered.length === 0 ? (
         <div className="text-center py-24"><p className="text-6xl mb-4">🔍</p><p className="font-black text-xl text-slate-800 mb-2">לא נמצאו מוצרים</p><button onClick={clearFilters} className="btn btn-primary mt-4 px-8">הצג הכל</button></div>
       ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-1 sm:gap-3 items-stretch">{filtered.map((p) => <ProductCard key={p._id} product={p} />)}</div>
+        <div className="products-grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 items-stretch">{filtered.map((p) => <ProductCard key={p._id} product={p} />)}</div>
       )}
     </div>
   )

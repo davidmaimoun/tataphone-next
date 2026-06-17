@@ -130,3 +130,39 @@ body {
   0%, 100% { box-shadow: 0 2px 10px rgba(239,68,68,0.4); }
   50% { box-shadow: 0 2px 18px rgba(239,68,68,0.7); }
 }
+
+/* ══════════════════════════════════════════════════════════════
+   SYSTÈME DE CARTES CENTRALISÉ
+   Pour changer le design des cartes partout : modifie SEULEMENT ici.
+   Style actuel : sans bordure, fondu dans le fond, ombre douce.
+   ══════════════════════════════════════════════════════════════ */
+
+/* Carte générale (panneaux, encadrés, résumés...) */
+.card {
+  background: #ffffff;
+  border-radius: 18px;
+  border: none;                /* ← pas de bordure */
+  box-shadow: 0 1px 3px rgba(157,75,46,0.04);  /* ombre très douce */
+}
+
+/* Carte produit (grille) — se fond dans le fond */
+.product-card {
+  background: transparent;     /* ← se fond dans le bg */
+  border-radius: 16px;
+  border: none;
+  box-shadow: none;
+  transition: all 0.25s cubic-bezier(0.25,0.8,0.25,1);
+}
+.product-card:hover {
+  background: #ffffff;
+  box-shadow: 0 8px 28px rgba(157,75,46,0.10);
+  transform: translateY(-2px);
+}
+
+/* Grille produits avec gap très fin */
+.products-grid {
+  display: grid;
+  gap: 4px;                    /* ← gap très fin */
+}
+@media (min-width: 640px)  { .products-grid { gap: 8px; } }
+@media (min-width: 1024px) { .products-grid { gap: 10px; } }

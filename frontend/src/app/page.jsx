@@ -102,7 +102,7 @@ export default async function HomePage() {
               gradientColors="#FBBF24, #F97316"
               description="לפי ביקורות הלקוחות שלנו"
               linkTo="/products?sort=-rating" linkLabel="ראה עוד" />
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-1 sm:gap-4 items-stretch">
+            <div className="products-grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 items-stretch">
               {topRated.map((p,i) => <TopRatedCard key={p._id} product={p} rank={i+1} />)}
             </div>
           </div>

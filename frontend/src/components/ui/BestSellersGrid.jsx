@@ -103,7 +103,7 @@ export default function BestSellersGrid({ products=[], loading=false }) {
   const all = loading ? Array.from({length:8},(_,i)=>({_id:`bsk${i}`,_skeleton:true})) : products.slice(0,8)
   if (!all.length) return null
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-1 sm:gap-2">
+    <div className="products-grid grid-cols-2 lg:grid-cols-4">
       {all.map((p,i) => p._skeleton ? <Skel key={p._id} /> : <RankedCard key={p._id} product={p} rank={i+1} />)}
     </div>
   )
