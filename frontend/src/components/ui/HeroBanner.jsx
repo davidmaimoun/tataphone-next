@@ -62,7 +62,7 @@ export default function HeroBanner() {
       <div className="absolute inset-0 opacity-[0.025]" style={{ backgroundImage:'linear-gradient(#000 1px,transparent 1px),linear-gradient(90deg,#000 1px,transparent 1px)', backgroundSize:'52px 52px' }} />
       <div className="absolute pointer-events-none transition-all duration-700" style={{ width:600, height:600, top:-180, right:-120, borderRadius:'50%', background:`radial-gradient(circle, ${s.accent}20 0%, transparent 65%)` }} />
 
-      <div className="max-w-7xl mx-auto px-6 sm:px-10 lg:px-16 py-12 lg:py-20">
+      <div className="max-w-[1440px] mx-auto px-6 sm:px-10 lg:px-8 py-12 lg:py-20">
         <div className="flex flex-col lg:flex-row items-center gap-8 lg:gap-14">
           {/* Text */}
           <div className="flex-1 text-right w-full lg:max-w-lg z-10">

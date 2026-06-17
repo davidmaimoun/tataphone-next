@@ -15,7 +15,7 @@ const CATS = [
 export default function CategoryBar() {
   return (
     <section className="py-8 bg-white border-b border-slate-100">
-      <div className="max-w-7xl mx-auto px-2 sm:px-6 lg:px-10">
+      <div className="max-w-[1440px] mx-auto px-2 sm:px-6 lg:px-8">
         <div className="flex gap-3 sm:gap-4 overflow-x-auto no-scrollbar pb-2">
           {CATS.map(({ key, img }) => (
             <Link key={key} href={`/products?category=${encodeURIComponent(key)}`} className="group flex flex-col items-center gap-2 flex-shrink-0">

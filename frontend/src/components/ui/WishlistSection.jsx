@@ -31,7 +31,7 @@ export default function WishlistSection() {
 
   return (
     <section className="py-12" style={{ background:'linear-gradient(to bottom,#FFF1F2,white)' }}>
-      <div className="max-w-7xl mx-auto px-6 sm:px-10 lg:px-16">
+      <div className="max-w-[1440px] mx-auto px-6 sm:px-10 lg:px-8">
         <div className="flex items-end justify-between mb-8">
           <div>
             <div className="flex items-center gap-2 mb-3">

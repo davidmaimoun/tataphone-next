@@ -83,7 +83,7 @@ export default async function ProductPage({ params }) {
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       {/* La partie interactive (galerie, panier) = client component */}
       <ProductDetailClient product={product} />
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-10 pb-16">
+      <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 pb-16">
         <ReviewSection productId={product._id} />
         <RelatedProducts productId={product._id} />
       </div>

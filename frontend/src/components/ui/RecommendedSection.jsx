@@ -5,7 +5,7 @@ import SectionHeader from './SectionHeader'
 import ProductCarousel from './ProductCarousel'
 
 const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'
-const W = 'max-w-7xl mx-auto px-2 sm:px-6 lg:px-10'
+const W = 'max-w-[1440px] mx-auto px-2 sm:px-6 lg:px-8'
 
 export default function RecommendedSection() {
   const [products, setProducts] = useState([])

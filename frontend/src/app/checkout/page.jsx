@@ -59,7 +59,7 @@ export default function CheckoutPage() {
   )
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-10 py-8">
+    <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="flex items-center justify-between mb-6">
         <h1 className="font-black text-2xl text-slate-900">פרטי הזמנה</h1>
         <button onClick={runTestOrder} disabled={testing} className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[12px] font-bold bg-amber-50 border border-amber-200 text-amber-700 hover:bg-amber-100 transition-colors disabled:opacity-50"><FlaskConical className="w-3.5 h-3.5" />{testing ? 'יוצר...' : 'הזמנת בדיקה'}</button>

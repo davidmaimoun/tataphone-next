@@ -38,7 +38,7 @@ export default function WishlistPage() {
   }
 
   return (
-    <main className="min-h-screen max-w-7xl mx-auto px-2 sm:px-6 lg:px-10 py-8">
+    <main className="min-h-screen max-w-[1440px] mx-auto px-2 sm:px-6 lg:px-8 py-8">
       <div className="flex items-center gap-3 mb-6">
         <Heart className="w-6 h-6 text-red-400 fill-red-400" />
         <h1 className="text-2xl sm:text-3xl font-black text-slate-900">רשימת משאלות ({products.length})</h1>

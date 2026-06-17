@@ -76,7 +76,7 @@ export default function LastMinuteSection({ compact = false }) {
 
   return (
     <section className={compact ? "mt-5 mb-2" : "py-10"}>
-      <div className={compact ? "" : "max-w-7xl mx-auto px-3 sm:px-6 lg:px-10"}>
+      <div className={compact ? "" : "max-w-[1440px] mx-auto px-3 sm:px-6 lg:px-8"}>
         <div className="rounded-3xl p-5 sm:p-7" style={{ background:'linear-gradient(135deg,var(--primary-pale) 0%,#F0FDF4 100%)', border:'1px solid var(--primary-border)', boxShadow:'0 4px 24px var(--primary-glow)' }}>
           <div className="flex items-center justify-between mb-5">
             <div className="flex items-center gap-3">

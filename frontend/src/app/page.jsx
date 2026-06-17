@@ -13,7 +13,7 @@ import productService from '@/services/productService'
 
 export const revalidate = 120
 
-const W = 'max-w-7xl mx-auto px-2 sm:px-6 lg:px-10'
+const W = 'max-w-[1440px] mx-auto px-2 sm:px-6 lg:px-8'
 
 export default async function HomePage() {
   // Fetch SERVEUR en parallèle (SEO + rapide)

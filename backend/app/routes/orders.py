@@ -114,10 +114,10 @@ def accounting():
     end   = datetime.datetime(y + (m // 12), (m % 12) + 1, 1)
 
     db = get_db()
-    q = {'createdAt': {'$gte': start, '$lt': end}}
+    q = {'createdAt': {'$gte': start, '$lt': end}, 'status': 'completed'}
     if not include_test:
         q['isTest'] = {'$ne': True}
-
+    
     orders = list(db['orders'].find(q))
 
     supplier_cache = {}
@@ -283,51 +283,35 @@ def pending_count():
     if not _is_admin():
         return jsonify({'error': 'Admin only'}), 403
     from app.db import get_db
-    count = get_db()['orders'].count_documents({'status': 'ממתין'})
+    count = get_db()['orders'].count_documents({'status': 'pending'})
     return jsonify({'count': count})
 
 
 def _send_status_email(order: dict, status: str):
     from app.services.email_service import send_email, _wrap, _btn, APP_URL
     cust = order.get('customer', {})
-    to   = cust.get('email', '')
-    name = cust.get('firstName', '')
+    to   = cust.get('email', ''); name = cust.get('firstName', '')
     oid  = str(order.get('_id',''))[-8:].upper()
-    if not to:
-        return
-
+    if not to: return
+ 
     STATUS_CFG = {
-        'אושר':  ('ההזמנה אושרה! ✅', '🎉', '#059669', 'ההזמנה שלך אושרה ומוכנה לשליחה.'),
-        'נשלח':  ('ההזמנה נשלחה! 🚚', '📦', '#2563EB', 'ההזמנה בדרך! צפה לקבל אותה תוך 2-4 ימי עסקים.'),
-        'הושלם': ('ההזמנה הושלמה! 🎊', '🎊', '#7C3AED', 'תודה שקנית בטאטעפון! נשמח לראותך שוב.'),
-        'בוטל':  ('ההזמנה בוטלה ❌', '❌', '#DC2626', 'ההזמנה שלך בוטלה. לשאלות פנה אלינו.'),
+        'approved':  ('ההזמנה אושרה! ✅', '🎉', '#059669', 'ההזמנה שלך אושרה ומוכנה לשליחה.'),
+        'shipped':   ('ההזמנה נשלחה! 🚚', '📦', '#CC785C', 'ההזמנה בדרך! צפה לקבל אותה תוך 2-4 ימי עסקים.'),
+        'completed': ('ההזמנה הושלמה! 🎊', '🎊', '#7C3AED', 'תודה שקנית בטאטעפון! נשמח לראותך שוב.'),
+        'cancelled': ('ההזמנה בוטלה ❌', '❌', '#DC2626', 'ההזמנה שלך בוטלה. לשאלות פנה אלינו.'),
     }
-    if status not in STATUS_CFG:
-        return
-
+    if status not in STATUS_CFG: return
     title, emoji, color, desc = STATUS_CFG[status]
-    thanks = ""
-    if status == 'הושלם':
-        thanks = "<div style='background:#F0FDF4;border-radius:10px;padding:14px 16px;margin:14px 0;border:1px solid #BBF7D0;'><p style='font-size:13px;font-weight:700;color:#065F46;margin:0 0 4px;'>תודה שבחרת בטאטעפון!</p><p style='font-size:13px;color:#374151;margin:0;'>אנו שמחים לשרת אותך ומקווים לראותך שוב בקרוב.</p></div>"
     order_btn = _btn(f"{APP_URL}/my-orders", "צפה בהזמנות שלי") if order.get('userId') else ""
-
     html = _wrap(
-        f"<div style='text-align:center;padding:20px 0 16px;'>"
-        f"<div style='font-size:48px;'>{emoji}</div>"
-        f"<h2 style='font-size:22px;font-weight:900;color:#0F172A;margin:12px 0 8px;'>{title}</h2>"
-        f"<p style='font-size:14px;color:#64748B;'>הזמנה <strong style='color:{color};'>#{oid}</strong></p>"
-        f"</div>"
+        f"<div style='text-align:center;padding:20px 0 16px;'><div style='font-size:48px;'>{emoji}</div>"
+        f"<h2 style='font-size:22px;font-weight:900;color:#3A2A22;margin:12px 0 8px;'>{title}</h2>"
+        f"<p style='font-size:14px;color:#7A6A60;'>הזמנה <strong style='color:{color};'>#{oid}</strong></p></div>"
         f"<div style='background:#FAF3EF;border-radius:10px;padding:16px 20px;margin:16px 0;text-align:right;'>"
-        f"<p style='font-size:14px;color:#374151;line-height:1.7;'>שלום {name},<br>{desc}</p>"
-        f"</div>"
-        f"{thanks}"
-        f"{order_btn}"
-        f"<div style='margin-top:20px;padding-top:16px;border-top:1px solid #F1F5F9;font-size:12px;color:#94A3B8;text-align:center;'>"
-        f"שאלות? <a href='mailto:info@tataphone.co.il' style='color:#CC785C;'>info@tataphone.co.il</a>"
-        f"</div>"
+        f"<p style='font-size:14px;color:#5A4A40;line-height:1.7;'>שלום {name},<br>{desc}</p></div>{order_btn}"
     )
     send_email(to, f"הזמנה #{oid} — {title}", html)
-
+ 
 
 # ── POST /api/payments/paypal/create ─────────────────────────────────────────
 @orders_bp.route('/paypal/create', methods=['POST'])

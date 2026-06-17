@@ -65,7 +65,7 @@ export default function ProductDetailClient({ product }) {
 
   return (
     <div>
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-10 py-4 flex items-center gap-2 text-[14px] text-slate-400">
+      <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center gap-2 text-[14px] text-slate-400">
         <Link href="/" className="hover:text-primary-600 transition-colors">ראשי</Link>
         <ChevronLeft className="w-3.5 h-3.5" />
         <Link href="/products" className="hover:text-primary-600 transition-colors">מוצרים</Link>
@@ -74,7 +74,7 @@ export default function ProductDetailClient({ product }) {
         <span className="text-slate-700 font-medium truncate max-w-xs">{name}</span>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-10 pb-2">
+      <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 pb-2">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-16">
           {/* Gallery */}
           <div>

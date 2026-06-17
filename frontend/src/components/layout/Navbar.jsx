@@ -41,7 +41,7 @@ export default function Navbar() {
 
   return (
     <header className={`sticky top-0 z-50 transition-all duration-300 ${scrolled ? 'bg-white/90 backdrop-blur-md shadow-[0_2px_20px_rgba(0,0,0,0.08)]' : 'bg-white border-b border-slate-100'}`}>
-      <div className="max-w-7xl mx-auto px-6 sm:px-10 lg:px-16">
+      <div className="max-w-[1440px] mx-auto px-6 sm:px-10 lg:px-8">
         <div className="flex items-center justify-between h-16">
           <Link href="/" className="flex-shrink-0 flex items-center">
             <Image src="/logo.png" alt="טאטעפון" width={120} height={32} className="h-7 sm:h-8 w-auto object-contain" priority />

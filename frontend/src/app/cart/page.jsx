@@ -28,7 +28,7 @@ export default function CartPage() {
   }
 
   return (
-    <main className="min-h-screen max-w-7xl mx-auto px-3 sm:px-6 lg:px-10 py-8">
+    <main className="min-h-screen max-w-[1440px] mx-auto px-3 sm:px-6 lg:px-8 py-8">
       <h1 className="text-2xl sm:text-3xl font-black text-slate-900 mb-6">עגלת קניות ({items.length})</h1>
 
       <LastMinuteSection compact />

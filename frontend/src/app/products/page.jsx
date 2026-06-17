@@ -95,7 +95,7 @@ function ProductsInner() {
   }, [products, category, sale, topRated, isNew, isKosher, searchParams, sort])
 
   return (
-    <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-10 py-6">
+    <div className="max-w-[1440px] mx-auto px-3 sm:px-6 lg:px-8 py-6">
       <div className="flex items-center justify-between mb-5">
         <div><h1 className="font-black text-2xl sm:text-3xl text-slate-900">כל המוצרים</h1><p className="text-[13px] text-slate-400 mt-0.5">{filtered.length} מוצרים</p></div>
         <div className="relative">

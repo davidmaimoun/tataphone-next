@@ -25,12 +25,12 @@ export default function Footer() {
   return (
     <footer className="bg-slate-800 text-white mt-16">
       <div className="h-[3px]" style={{ background:'linear-gradient(to right,#1E3A8A,var(--primary),var(--primary-light),var(--primary),#1E3A8A)' }} />
-      <div className="max-w-7xl mx-auto px-6 sm:px-10 lg:px-16 py-14">
+      <div className="max-w-[1440px] mx-auto px-6 sm:px-10 lg:px-8 py-14">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-10 mb-12">
           <div className="lg:col-span-2">
-            <div className="mb-5">
-              <span className="font-rubik text-2xl font-black text-primary-400">טאטע</span>
-              <span className="font-rubik text-2xl font-black text-white">פון</span>
+            <div className="mb-5 flex items-center gap-3">
+              <img src="/logo.png" alt="טאטעפון" className="h-10 w-auto object-contain" />
+              <span className="font-rubik text-2xl font-black"><span className="text-primary-400">טאטע</span><span className="text-white">פון</span></span>
             </div>
             <p className="text-sm text-slate-300 leading-7 mb-6 max-w-xs">
               המקום המוביל לטכנולוגיה כשרה בישראל. כל המוצרים מאושרים ומותאמים לציבור הדתי. אנו מחויבים לאיכות ולשירות הטוב ביותר.

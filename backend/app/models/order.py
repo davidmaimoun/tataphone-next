@@ -3,6 +3,15 @@ from bson import ObjectId
 from app.db import get_db
 
 
+ORDER_STATUSES = ['pending', 'approved', 'shipped', 'completed', 'cancelled']
+ 
+_LEGACY_HE = {'ממתין':'pending','אושר':'approved','נשלח':'shipped','הושלם':'completed','בוטל':'cancelled'}
+
+def normalize_status(s):
+    if not s: return 'pending'
+    if s in ORDER_STATUSES: return s
+    return _LEGACY_HE.get(s, 'pending')
+
 def get_collection():
     return get_db()['orders']
 
@@ -41,7 +50,7 @@ def create_order(data: dict) -> dict:
         'subtotal':       float(data.get('subtotal', data.get('total', 0))),
         'vat':            float(data.get('vat', 0)),
         'total':          float(data.get('total', 0)),
-        'status':         'ממתין',
+        'status':         'pending',
         'paymentMethod':  data.get('paymentMethod', 'pending'),
         'paymentStatus':  'pending',
         'userId':         data.get('userId'),
@@ -81,14 +90,13 @@ def get_by_user(user_id: str):
     return [serialize(o) for o in cursor]
 
 
-def update_status(order_id: str, status: str):
-    if status not in VALID_STATUSES:
-        raise ValueError(f'Invalid status: {status}')
-    get_collection().update_one(
-        {'_id': ObjectId(order_id)},
-        {'$set': {'status': status, 'updatedAt': datetime.utcnow()}}
-    )
-
+def update_status(order_id, status):
+      status = normalize_status(status)
+      if status not in ORDER_STATUSES:
+          raise ValueError(f"Invalid status: {status}")
+      get_collection().update_one({'_id': ObjectId(order_id)},
+            {'$set': {'status': status, 'updatedAt': datetime.now()}})
+           
 
 def mark_invoice_sent(order_id: str):
     get_collection().update_one(
