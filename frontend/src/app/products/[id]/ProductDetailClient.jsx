@@ -169,17 +169,6 @@ export default function ProductDetailClient({ product }) {
               </div>
             )}
 
-            {/* Specs */}
-            {hasSpecs && (
-              <div className="mt-6 border-t border-slate-100 pt-5">
-                <h3 className="text-[15px] font-bold text-slate-700 mb-3">מפרט טכני</h3>
-                <div className="space-y-0">
-                  {Object.entries(specsObj).map(([k, v]) => (
-                    <div key={k} className="flex justify-between text-[14px] py-2.5 border-b border-slate-50"><span className="text-slate-400 font-medium">{k}</span><span className="text-slate-700 font-semibold">{v}</span></div>
-                  ))}
-                </div>
-              </div>
-            )}
           </div>
         </div>
       </div>

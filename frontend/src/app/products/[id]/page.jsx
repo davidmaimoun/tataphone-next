@@ -3,6 +3,7 @@ import productService from '@/services/productService'
 import ProductDetailClient from './ProductDetailClient'
 import ReviewSection from '@/components/product/ReviewSection'
 import RelatedProducts from '@/components/product/RelatedProducts'
+import ProductDetailTabs from '@/components/product/ProductDetailTabs'
 
 // ════════════════════════════════════════════════════════════
 // SERVER COMPONENT — s'exécute sur le serveur.
@@ -84,6 +85,7 @@ export default async function ProductPage({ params }) {
       {/* La partie interactive (galerie, panier) = client component */}
       <ProductDetailClient product={product} />
       <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 pb-16">
+        <ProductDetailTabs details={product.details} specs={product.specs} />
         <ReviewSection productId={product._id} />
         <RelatedProducts productId={product._id} />
       </div>

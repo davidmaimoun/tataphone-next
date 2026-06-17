@@ -59,7 +59,6 @@ def get_all(params: dict = {}):
     limit  = min(48, max(1, int(params.get('limit', 12))))
     skip   = (page - 1) * limit
 
-    # Build sort list
     sort_field = sort.lstrip('-')
     sort_dir   = -1 if sort.startswith('-') else 1
     cursor = col.find(query).sort(sort_field, sort_dir).skip(skip).limit(limit)
@@ -89,7 +88,6 @@ def get_related(product_id: str, limit: int = 4):
 
 
 def get_recommended(visited_ids: list, limit: int = 8):
-    """Simple recommendation: same categories as visited products."""
     try:
         obj_ids = [ObjectId(i) for i in visited_ids[:10]]
     except Exception:
@@ -101,7 +99,6 @@ def get_recommended(visited_ids: list, limit: int = 8):
         '_id':      {'$nin': obj_ids}
     }).sort('rating', -1).limit(limit)
     return [serialize(p) for p in cursor]
-
 
 
 def _parse_list(val) -> list:
@@ -122,6 +119,25 @@ def _parse_specs(val) -> dict:
         except: return {}
     return {}
 
+
+def _parse_details(val) -> list:
+    """details = liste de sections [{title, body}]. Accepte JSON string ou liste."""
+    if isinstance(val, list):
+        out = []
+        for s in val:
+            if isinstance(s, dict) and (s.get('title') or s.get('body')):
+                out.append({'title': str(s.get('title', '')).strip(),
+                            'body':  str(s.get('body', '')).strip()})
+        return out
+    if isinstance(val, str) and val.strip():
+        import json
+        try:
+            return _parse_details(json.loads(val))
+        except Exception:
+            return []
+    return []
+
+
 def create_product(data: dict) -> dict:
     now = datetime.utcnow()
     price    = float(data.get('price', 0))
@@ -132,10 +148,10 @@ def create_product(data: dict) -> dict:
         'sku':           data.get('sku', ''),
         'category':      data.get('category', 'smartphones'),
         'description':   data.get('description', ''),
+        'details':       _parse_details(data.get('details', '[]')),   # ← NOUVEAU : sections (tabs)
         'price':         price,
         'originalPrice': orig if orig > price else None,
         'discount':      orig > price,
-        'specs':         data.get('specs', {}),
         'images':        data.get('images', []),
         'stock':         int(data.get('stock', 0)),
         'rating':        float(data.get('rating', 0)),
@@ -149,6 +165,7 @@ def create_product(data: dict) -> dict:
         'note':          data.get('note', ''),
         'specs':         _parse_specs(data.get('specs', '{}')),
         'sizes':         _parse_list(data.get('selectedSizes', '[]')),
+        'supplierPrice': (float(data.get('supplierPrice')) if data.get('supplierPrice') not in (None,'','None') else None),
         'createdAt':     now,
         'updatedAt':     now,
     }
@@ -158,29 +175,25 @@ def create_product(data: dict) -> dict:
 
 
 def update_product(product_id: str, data: dict) -> dict:
-    # Remove immutable fields MongoDB refuses to update
     for field in ('_id', 'id', 'createdAt'):
         data.pop(field, None)
 
     data['updatedAt'] = datetime.utcnow()
-    # Recompute discount flag
-    try:
-        price = float(data.get('price', 0))
-        orig  = float(data.get('originalPrice') or 0)
-        if price and orig:
-            data['discount'] = orig > price
-    except (ValueError, TypeError):
-        pass
     import json as _json
 
-    # Parse all JSON-string fields
+    # JSON-string fields
     for field in ('specs',):
         if field in data and isinstance(data[field], str):
             data[field] = _parse_specs(data[field])
-    for field in ('colors', 'sizes', 'images'):
+    if 'details' in data:
+        data['details'] = _parse_details(data['details'])   # ← NOUVEAU
+    for field in ('colors', 'sizes', 'images', 'tags'):
         if field in data and isinstance(data[field], str):
             try: data[field] = _json.loads(data[field])
             except: pass
+    if 'supplierPrice' in data:
+        try: data['supplierPrice'] = float(data['supplierPrice']) if data['supplierPrice'] not in (None,'','None') else None
+        except (ValueError, TypeError): data['supplierPrice'] = None
 
     # Recompute discount
     try:
@@ -203,28 +216,24 @@ def add_images(product_id: str, urls: list):
 
 
 def apply_promotion(target_type: str, target: str, discount_pct: float):
-    """Apply a discount % to products matching target."""
     col = get_collection()
     if target_type == 'all':
         match = {}
     elif target_type == 'category':
         match = {'category': target}
-    else:  # product
+    else:
         try:
             match = {'_id': ObjectId(target)}
         except Exception:
             return 0
-
     products = list(col.find(match))
     count = 0
     for p in products:
         base  = p.get('originalPrice') or p['price']
         new_p = round(base * (1 - discount_pct / 100), 2)
         col.update_one({'_id': p['_id']}, {'$set': {
-            'price':         new_p,
-            'originalPrice': base,
-            'discount':      True,
-            'updatedAt':     datetime.utcnow(),
+            'price': new_p, 'originalPrice': base, 'discount': True,
+            'updatedAt': datetime.utcnow(),
         }})
         count += 1
     return count
@@ -244,6 +253,7 @@ def serialize(p: dict, admin: bool = False) -> dict:
         'sku':           p.get('sku'),
         'category':      p.get('category'),
         'description':   p.get('description'),
+        'details':       p.get('details', []),     
         'price':         p.get('price'),
         'originalPrice': p.get('originalPrice'),
         'discount':      p.get('discount', False),
@@ -264,5 +274,5 @@ def serialize(p: dict, admin: bool = False) -> dict:
         'updatedAt':     p['updatedAt'].isoformat() if p.get('updatedAt') else '',
     }
     if admin:
-        out['supplierPrice'] = p.get('supplierPrice')   # interne, admin only
+        out['supplierPrice'] = p.get('supplierPrice')
     return out

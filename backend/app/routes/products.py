@@ -347,6 +347,8 @@ def import_schema():
         {'key':'specs',         'label':'מפרט טכני',     'required':False, 'type':'object'},
         {'key':'note',          'label':'הערת מנהל',     'required':False, 'type':'text'},
         {'key':'images',        'label':'תמונות (URLs)', 'required':False, 'type':'list'},
+        {'key':'details', 'label':'מקטעים (תיאור/אחריות/משלוח)', 'required':False, 'type':'list',
+         'note':'מערך של {title, body} — לשוניות מתחת למוצר'},
     ]
     try:
         cats   = sorted([c for c in db['products'].distinct('category') if c])

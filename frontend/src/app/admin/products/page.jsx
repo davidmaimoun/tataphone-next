@@ -169,6 +169,15 @@ function ProductModal({ product, onClose, onSave }) {
   const [newBrand, setNewBrand] = useState(''); const [newColor, setNewColor] = useState(''); const [newCat, setNewCat] = useState(''); const [newTag, setNewTag] = useState('')
   const [showNewBrand, setShowNewBrand] = useState(false); const [showNewColor, setShowNewColor] = useState(false); const [showNewCat, setShowNewCat] = useState(false); const [showNewTag, setShowNewTag] = useState(false)
   const [note, setNote] = useState(product?.note || '')
+  const DEFAULT_SECTIONS = [
+    { title:'תיאור', body:'' }, { title:'אחריות', body:'' },
+    { title:'משלוח', body:'' }, { title:'החזרות', body:'' },
+  ]
+  const [details, setDetails] = useState(() => {
+    const d = product?.details
+    if (Array.isArray(d) && d.length) return d.map(s => ({ title:String(s.title||''), body:String(s.body||'') }))
+    return DEFAULT_SECTIONS
+  })
   const [specs, setSpecs] = useState(() => {
     let s = product?.specs
     if (typeof s === 'string') { try { s = JSON.parse(s) } catch { s = {} } }
@@ -222,6 +231,7 @@ function ProductModal({ product, onClose, onSave }) {
       const specsObj = {}; specs.filter(s => s.k.trim()).forEach(s => { specsObj[s.k.trim()] = s.v.trim() })
       fd.append('specs', JSON.stringify(specsObj))
       fd.append('note', note)
+      fd.append('details', JSON.stringify(details.filter(s => s.title.trim() || s.body.trim())))
       fd.append('isKosher', form.isKosher ? 'true' : 'false')
       // isAccessory auto-derived: a product is "accessory" if it has tags AND is cheap — backend may infer. We send false by default unless backend handles tags.
       const sorted = [...photos].sort((a, b) => b.isMain - a.isMain)
@@ -367,6 +377,23 @@ function ProductModal({ product, onClose, onSave }) {
               ))}
             </div>
             <button type="button" onClick={() => setSpecs(prev => [...prev, { k:'', v:'' }])} className="flex items-center gap-1.5 text-xs font-semibold text-primary-600 hover:text-primary-700 bg-primary-50 hover:bg-primary-100 px-3 py-1.5 rounded-lg transition-colors"><Plus className="w-3.5 h-3.5" />הוסף שורה</button>
+          </div>
+
+          {/* Sections (לשוניות מתחת למוצר) */}
+          <div>
+            <label className="block text-xs font-bold text-slate-500 mb-2">מקטעים — לשוניות מתחת למוצר <span className="font-normal text-slate-400">(תיאור, אחריות, משלוח...)</span></label>
+            <div className="space-y-3 mb-2">
+              {details.map((sec, i) => (
+                <div key={i} className="border border-slate-100 rounded-xl p-3 bg-slate-50/50">
+                  <div className="flex gap-2 items-center mb-2">
+                    <input value={sec.title} onChange={e => setDetails(prev => prev.map((s,idx)=>idx===i?{...s,title:e.target.value}:s))} dir="rtl" className="input text-sm font-bold flex-1" placeholder="כותרת הלשונית (תיאור, אחריות...)" />
+                    <button type="button" onClick={() => setDetails(prev => prev.filter((_,idx)=>idx!==i))} className="w-8 h-8 rounded-lg bg-red-50 text-red-400 hover:bg-red-100 flex items-center justify-center flex-shrink-0"><X className="w-4 h-4" /></button>
+                  </div>
+                  <textarea value={sec.body} onChange={e => setDetails(prev => prev.map((s,idx)=>idx===i?{...s,body:e.target.value}:s))} rows={3} dir="rtl" className="input resize-none text-sm w-full" placeholder="תוכן הלשונית..." />
+                </div>
+              ))}
+            </div>
+            <button type="button" onClick={() => setDetails(prev => [...prev, { title:'', body:'' }])} className="flex items-center gap-1.5 text-xs font-semibold text-primary-600 hover:text-primary-700 bg-primary-50 hover:bg-primary-100 px-3 py-1.5 rounded-lg transition-colors"><Plus className="w-3.5 h-3.5" />הוסף מקטע</button>
           </div>
 
           <div className="flex gap-3 pt-2">
