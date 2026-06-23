@@ -57,11 +57,11 @@ def create_app():
     from .routes.wishlist   import wishlist_bp
     from .routes.meta      import meta_bp
     from .routes.reviews   import reviews_bp
+    from app.routes.integrations import integrations_bp
 
     app.register_blueprint(wishlist_bp,    url_prefix='/api/wishlist')
     app.register_blueprint(meta_bp,        url_prefix='/api/meta')
     app.register_blueprint(reviews_bp,    url_prefix='/api/reviews')
-
     app.register_blueprint(auth_bp,       url_prefix='/api/auth')
     app.register_blueprint(products_bp,   url_prefix='/api/products')
     app.register_blueprint(orders_bp,     url_prefix='/api/orders')
@@ -69,6 +69,8 @@ def create_app():
     app.register_blueprint(users_bp,      url_prefix='/api/users')
     app.register_blueprint(contact_bp,    url_prefix='/api/contact')
     app.register_blueprint(uploads_bp,    url_prefix='/api/uploads')
+    app.register_blueprint(integrations_bp, url_prefix='/api/integrations')
+
 
 
 

@@ -13,3 +13,4 @@ gunicorn==21.2.0
 authlib==1.3.0
 weasyprint
 gevent
+boto3==1.34.69

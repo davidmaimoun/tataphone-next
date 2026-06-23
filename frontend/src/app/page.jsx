@@ -4,8 +4,7 @@ import HeroBanner from '@/components/ui/HeroBanner'
 import CategoryBar from '@/components/ui/CategoryBar'
 import SectionHeader from '@/components/ui/SectionHeader'
 import ProductCarousel from '@/components/ui/ProductCarousel'
-import BestSellersGrid from '@/components/ui/BestSellersGrid'
-import TopRatedCard from '@/components/product/TopRatedCard'
+import ProductCard from '@/components/product/ProductCard'
 import PromoBanners from '@/components/ui/PromoBanners'
 import WishlistSection from '@/components/ui/WishlistSection'
 import RecommendedSection from '@/components/ui/RecommendedSection'
@@ -20,8 +19,8 @@ export default async function HomePage() {
   const [newP, kosherP, topP, bestP, saleP] = await Promise.all([
     productService.getAll({ sort:'-createdAt',   limit:10 }),
     productService.getAll({ isKosher:'true', sort:'-reviewCount', limit:12 }),
-    productService.getAll({ sort:'-rating',      limit:8  }),
-    productService.getAll({ sort:'-reviewCount', limit:8  }),
+    productService.getAll({ sort:'-rating',      limit:12 }),
+    productService.getAll({ sort:'-reviewCount', limit:10 }),
     productService.getAll({ sale:'true',         limit:10 }),
   ])
 
@@ -45,7 +44,11 @@ export default async function HomePage() {
             description="הגיעו עכשיו למחסן שלנו"
             linkTo="/products?sort=-createdAt" linkLabel="כל המוצרים" />
         </div>
-        <div className={W}><ProductCarousel products={newProducts} forceNew /></div>
+        <div className={W}>
+          <div className="products-grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 items-stretch">
+            {newProducts.map((p,i) => <ProductCard key={p._id} product={p} index={i} forceNew />)}
+          </div>
+        </div>
       </section>
 
       {/* Kosher */}
@@ -74,7 +77,9 @@ export default async function HomePage() {
               gradientColors="#F97316, #EF4444"
               description="המוצרים שהכי אוהבים לקנות"
               linkTo="/products?sort=-reviewCount" linkLabel="כל הרב-מכרים" />
-            <BestSellersGrid products={bestSellers} />
+            <div className="products-grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 items-stretch mt-6">
+              {bestSellers.map((p,i) => <ProductCard key={p._id} product={p} index={i} rank={i+1} />)}
+            </div>
           </div>
         </section>
       )}
@@ -102,10 +107,8 @@ export default async function HomePage() {
               gradientColors="#FBBF24, #F97316"
               description="לפי ביקורות הלקוחות שלנו"
               linkTo="/products?sort=-rating" linkLabel="ראה עוד" />
-            <div className="products-grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 items-stretch">
-              {topRated.map((p,i) => <TopRatedCard key={p._id} product={p} rank={i+1} />)}
-            </div>
           </div>
+          <div className={W}><ProductCarousel products={topRated} showRank /></div>
         </section>
       )}
 

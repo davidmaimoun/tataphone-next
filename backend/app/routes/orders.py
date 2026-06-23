@@ -42,21 +42,18 @@ def create_order():
     if user_id:
         data['userId'] = user_id
 
-    # AJOUT : flag commande test (le bouton test du checkout envoie paymentMethod='test')
     data['isTest'] = (data.get('paymentMethod') == 'test')
 
     for item in data.get('items', []):
         p = ProductModel.get_by_id(item.get('product', ''))
         if p:
             item['name'] = p.get('name', '')
-            # AJOUT : on fige le prix fournisseur dans la commande (pour la compta)
             try:
                 item['supplierPrice'] = float(p.get('supplierPrice') or 0)
             except (TypeError, ValueError):
                 item['supplierPrice'] = 0
     order = OrderModel.create_order(data)
 
-    # Send HTML confirmation
     try:
         c = order.get('customer', {})
         print(f"[EMAIL] order subtotal={order.get('subtotal')} vat={order.get('vat')} total={order.get('total')}")
@@ -65,7 +62,6 @@ def create_order():
     except Exception as e:
         print(f'[EMAIL] confirmation failed: {e}')
 
-    # PDF is already attached in send_order_confirmation above
     OrderModel.mark_invoice_sent(order.get('_id',''))
     return jsonify(order), 201
 
@@ -90,7 +86,7 @@ def stats():
     return jsonify(s)
 
 
-# ── GET /api/orders/accounting?month=YYYY-MM — RAPPORT COMPTABLE (AJOUT) ──────
+# ── GET /api/orders/accounting?month=YYYY-MM — RAPPORT COMPTABLE ──────────────
 @orders_bp.route('/accounting', methods=['GET'])
 @jwt_required()
 def accounting():
@@ -100,7 +96,7 @@ def accounting():
     from bson import ObjectId
     import datetime
 
-    month        = request.args.get('month')                       # 'YYYY-MM'
+    month        = request.args.get('month')
     include_test = request.args.get('includeTest') == 'true'
     now = datetime.datetime.utcnow()
     if month:
@@ -114,10 +110,11 @@ def accounting():
     end   = datetime.datetime(y + (m // 12), (m % 12) + 1, 1)
 
     db = get_db()
+    # Profit uniquement sur commandes 'completed'
     q = {'createdAt': {'$gte': start, '$lt': end}, 'status': 'completed'}
     if not include_test:
         q['isTest'] = {'$ne': True}
-    
+
     orders = list(db['orders'].find(q))
 
     supplier_cache = {}
@@ -202,7 +199,6 @@ def update_status(order_id):
             _send_status_email(order, status)
     except Exception as e:
         print(f'[EMAIL] status update failed: {e}')
-
     return jsonify({'updated': True})
 
 
@@ -227,13 +223,11 @@ def send_invoice(order_id):
 # ── PDF invoice ───────────────────────────────────────────────────────────────
 
 def _generate_invoice_pdf(order: dict) -> bytes:
-    """Delegate to email_service to avoid duplication."""
     from app.services.email_service import _generate_invoice_pdf as _pdf
     return _pdf(order)
 
 
 def _send_invoice_with_pdf(order: dict, pdf_bytes: bytes):
-    """Send invoice via email_service (rich HTML + PDF attached)."""
     from app.services.email_service import send_order_confirmation
     c    = order.get('customer', {})
     to   = c.get('email', '')
@@ -249,7 +243,6 @@ def _send_invoice_with_pdf(order: dict, pdf_bytes: bytes):
 @orders_bp.route('/<order_id>/invoice-download', methods=['GET'])
 @jwt_required()
 def download_invoice(order_id):
-    """Download PDF invoice — accessible by the order owner or admin."""
     from flask import send_file
     import io
 
@@ -290,30 +283,46 @@ def pending_count():
 def _send_status_email(order: dict, status: str):
     from app.services.email_service import send_email, _wrap, _btn, APP_URL
     cust = order.get('customer', {})
-    to   = cust.get('email', ''); name = cust.get('firstName', '')
+    to   = cust.get('email', '')
+    name = cust.get('firstName', '')
     oid  = str(order.get('_id',''))[-8:].upper()
-    if not to: return
- 
+    if not to:
+        return
+
     STATUS_CFG = {
         'approved':  ('ההזמנה אושרה! ✅', '🎉', '#059669', 'ההזמנה שלך אושרה ומוכנה לשליחה.'),
         'shipped':   ('ההזמנה נשלחה! 🚚', '📦', '#CC785C', 'ההזמנה בדרך! צפה לקבל אותה תוך 2-4 ימי עסקים.'),
         'completed': ('ההזמנה הושלמה! 🎊', '🎊', '#7C3AED', 'תודה שקנית בטאטעפון! נשמח לראותך שוב.'),
         'cancelled': ('ההזמנה בוטלה ❌', '❌', '#DC2626', 'ההזמנה שלך בוטלה. לשאלות פנה אלינו.'),
     }
-    if status not in STATUS_CFG: return
+    if status not in STATUS_CFG:
+        return
+
     title, emoji, color, desc = STATUS_CFG[status]
+    thanks = ""
+    if status == 'completed':
+        thanks = "<div style='background:#F0FDF4;border-radius:10px;padding:14px 16px;margin:14px 0;border:1px solid #BBF7D0;'><p style='font-size:13px;font-weight:700;color:#065F46;margin:0 0 4px;'>תודה שבחרת בטאטעפון!</p><p style='font-size:13px;color:#374151;margin:0;'>אנו שמחים לשרת אותך ומקווים לראותך שוב בקרוב.</p></div>"
     order_btn = _btn(f"{APP_URL}/my-orders", "צפה בהזמנות שלי") if order.get('userId') else ""
+
     html = _wrap(
-        f"<div style='text-align:center;padding:20px 0 16px;'><div style='font-size:48px;'>{emoji}</div>"
+        f"<div style='text-align:center;padding:20px 0 16px;'>"
+        f"<div style='font-size:48px;'>{emoji}</div>"
         f"<h2 style='font-size:22px;font-weight:900;color:#3A2A22;margin:12px 0 8px;'>{title}</h2>"
-        f"<p style='font-size:14px;color:#7A6A60;'>הזמנה <strong style='color:{color};'>#{oid}</strong></p></div>"
+        f"<p style='font-size:14px;color:#7A6A60;'>הזמנה <strong style='color:{color};'>#{oid}</strong></p>"
+        f"</div>"
         f"<div style='background:#FAF3EF;border-radius:10px;padding:16px 20px;margin:16px 0;text-align:right;'>"
-        f"<p style='font-size:14px;color:#5A4A40;line-height:1.7;'>שלום {name},<br>{desc}</p></div>{order_btn}"
+        f"<p style='font-size:14px;color:#5A4A40;line-height:1.7;'>שלום {name},<br>{desc}</p>"
+        f"</div>"
+        f"{thanks}"
+        f"{order_btn}"
+        f"<div style='margin-top:20px;padding-top:16px;border-top:1px solid #F1E8E2;font-size:12px;color:#A1887A;text-align:center;'>"
+        f"שאלות? <a href='mailto:info@tataphone.co.il' style='color:#CC785C;'>info@tataphone.co.il</a>"
+        f"</div>"
     )
     send_email(to, f"הזמנה #{oid} — {title}", html)
- 
 
-# ── POST /api/payments/paypal/create ─────────────────────────────────────────
+
+# ── POST /api/orders/paypal/create ───────────────────────────────────────────
 @orders_bp.route('/paypal/create', methods=['POST'])
 def paypal_create():
     """Create PayPal order and return approval URL."""
@@ -352,7 +361,7 @@ def paypal_create():
     return jsonify({'approvalUrl': approve, 'paypalOrderId': pp_data.get('id')})
 
 
-# ── POST /api/payments/paypal/capture ────────────────────────────────────────
+# ── POST /api/orders/paypal/capture ──────────────────────────────────────────
 @orders_bp.route('/paypal/capture', methods=['POST'])
 def paypal_capture():
     """Capture PayPal payment after approval."""
@@ -375,7 +384,7 @@ def paypal_capture():
     cap_data = cap_resp.json()
 
     if cap_data.get('status') == 'COMPLETED':
-        OrderModel.update_status(our_order_id, 'אושר')
+        OrderModel.update_status(our_order_id, 'approved')
         from app.db import get_db
         get_db()['orders'].update_one(
             {'_id': __import__('bson').ObjectId(our_order_id)},
@@ -385,67 +394,90 @@ def paypal_capture():
     return jsonify({'ok': False, 'status': cap_data.get('status')}), 400
 
 
-# ── POST /api/payments/payplus/create ────────────────────────────────────────
-@orders_bp.route('/payplus/create', methods=['POST'])
-def payplus_create():
-    """Create PayPlus payment page and return URL."""
-    import os, requests as req, hashlib, json as _json
+# ── POST /api/orders/grow/create ─────────────────────────────────────────────
+@orders_bp.route('/grow/create', methods=['POST'])
+def grow_create():
+    """Crée un lien de paiement Grow (redirection). Body Grow = FormData."""
+    import os, requests as req
     data     = request.get_json() or {}
     amount   = float(data.get('amount', 0))
     order_id = data.get('orderId', '')
     customer = data.get('customer', {})
 
-    api_key    = os.getenv('PAYPLUS_API_KEY', '')
-    secret_key = os.getenv('PAYPLUS_SECRET_KEY', '')
-    app_url    = os.getenv('APP_URL', 'http://localhost:3000')
+    user_id   = os.getenv('GROW_USER_ID', '')
+    page_code = os.getenv('GROW_PAGE_CODE', '')
+    sandbox   = os.getenv('GROW_SANDBOX', 'true') == 'true'
+    base      = 'https://sandbox.grow.link' if sandbox else 'https://secure.grow.link'
+    app_url   = os.getenv('APP_URL', 'http://localhost:3000')
+    backend   = os.getenv('BACKEND_URL', 'http://localhost:5000')
 
-    if not api_key or not secret_key:
-        return jsonify({'error': 'PayPlus not configured'}), 500
+    if not user_id or not page_code:
+        return jsonify({'error': 'Grow not configured'}), 500
 
     payload = {
-        'payment_page_uid': os.getenv('PAYPLUS_PAGE_UID', ''),
-        'charge_method': 1,
-        'currency_code': 'ILS',
-        'amount': amount,
-        'order': {'id': order_id},
-        'customer': {
-            'customer_name':  customer.get('firstName','') + ' ' + customer.get('lastName',''),
-            'email':          customer.get('email',''),
-            'phone':          customer.get('phone',''),
-        },
-        'success_url': f'{app_url}/order-success?payplus=success&orderId={order_id}',
-        'cancel_url':  f'{app_url}/checkout?payplus=cancel',
-        'notify_url':  f'{os.getenv("BACKEND_URL","http://localhost:5000")}/api/orders/payplus/webhook',
+        'pageCode':            page_code,
+        'userId':              user_id,
+        'sum':                 f'{amount:.2f}',
+        'description':         f'הזמנה #{str(order_id)[-8:].upper()}',
+        'pageField[fullName]': f"{customer.get('firstName','')} {customer.get('lastName','')}".strip(),
+        'pageField[phone]':    customer.get('phone', ''),
+        'pageField[email]':    customer.get('email', ''),
+        'successUrl':          f'{app_url}/order-success?grow=success&orderId={order_id}',
+        'cancelUrl':           f'{app_url}/checkout?grow=cancel',
+        'notifyUrl':           f'{backend}/api/orders/grow/webhook',
+        'cField1':             str(order_id),
     }
-    signature = hashlib.md5(f"{api_key}{secret_key}{_json.dumps(payload,separators=(',',':'))}".encode()).hexdigest()
-    resp = req.post('https://reserver.payplus.co.il/api/v1.0/PaymentPages/generateLink',
-        headers={'api_key': api_key, 'secret_key': secret_key, 'Content-Type': 'application/json'},
-        json=payload)
-    resp_data = resp.json()
-    url = resp_data.get('data', {}).get('payment_page_link')
-    return jsonify({'paymentUrl': url})
+    resp = req.post(f'{base}/api/light/server/1.0/createPaymentLink',
+                    data=payload, timeout=20)
+    result = resp.json()
+    if result.get('status') == 1 and result.get('data', {}).get('url'):
+        return jsonify({'paymentUrl': result['data']['url'],
+                        'processId':  result['data'].get('processId'),
+                        'processToken': result['data'].get('processToken')})
+    return jsonify({'error': 'Grow create failed', 'detail': result.get('err') or result}), 400
 
 
-# ── POST /api/payments/payplus/webhook ───────────────────────────────────────
-@orders_bp.route('/payplus/webhook', methods=['POST'])
-def payplus_webhook():
-    data     = request.get_json() or {}
-    order_id = data.get('order', {}).get('id', '')
-    status   = data.get('status_code')
-    if status == '000' and order_id:  # 000 = success in PayPlus
-        OrderModel.update_status(order_id, 'אושר')
-        from app.db import get_db
-        get_db()['orders'].update_one(
-            {'_id': __import__('bson').ObjectId(order_id)},
-            {'$set': {'paymentStatus': 'paid', 'paymentMethod': 'payplus'}}
-        )
+# ── POST /api/orders/grow/webhook ────────────────────────────────────────────
+@orders_bp.route('/grow/webhook', methods=['POST'])
+def grow_webhook():
+    """Notification serveur-à-serveur de Grow + approveTransaction."""
+    import os, requests as req
+    data = request.form.to_dict() or (request.get_json(silent=True) or {})
+    order_id    = data.get('cField1', '')
+    status      = str(data.get('status', ''))
+    trans_id    = data.get('transactionId', '')
+    trans_token = data.get('transactionToken', '')
+
+    paid = status in ('1', 'approved', 'success')
+
+    if paid and order_id:
+        try:
+            OrderModel.update_status(order_id, 'approved')
+            from app.db import get_db
+            from bson import ObjectId
+            get_db()['orders'].update_one(
+                {'_id': ObjectId(order_id)},
+                {'$set': {'paymentStatus': 'paid', 'paymentMethod': 'grow'}}
+            )
+        except Exception as e:
+            print(f'[GROW] order update failed: {e}')
+
+        try:
+            user_id = os.getenv('GROW_USER_ID', '')
+            sandbox = os.getenv('GROW_SANDBOX', 'true') == 'true'
+            base    = 'https://sandbox.grow.link' if sandbox else 'https://secure.grow.link'
+            req.post(f'{base}/api/light/server/1.0/approveTransaction',
+                     data={'userId': user_id, 'transactionId': trans_id,
+                           'transactionToken': trans_token}, timeout=20)
+        except Exception as e:
+            print(f'[GROW] approveTransaction failed: {e}')
+
     return jsonify({'ok': True})
 
 
 # ── POST /api/orders/track-guest ─────────────────────────────────────────────
 @orders_bp.route('/track-guest', methods=['POST'])
 def track_guest():
-    """Track guest orders for admin stats."""
     from app.db import get_db
     import datetime
     data = request.get_json() or {}

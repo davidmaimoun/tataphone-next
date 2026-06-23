@@ -1,15 +1,13 @@
-import os
-import uuid
-from flask import Blueprint, request, jsonify, current_app
-from flask_jwt_extended import jwt_required, get_jwt_identity, get_jwt, verify_jwt_in_request
-from werkzeug.utils import secure_filename
 import openpyxl
-from PIL import Image
+from flask import Blueprint, request, jsonify
+from flask_jwt_extended import jwt_required, get_jwt, verify_jwt_in_request
+from app.services.r2_storage import upload_to_r2
 
 from app.models import product as ProductModel
 
 products_bp = Blueprint('products', __name__)
 
+ 
 
 def _sync_meta(product_data):
     """Auto-add brand/category/colors/sizes to meta collections."""
@@ -50,18 +48,12 @@ def _allowed_img(filename: str) -> bool:
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_IMG
 
 
+
+# ── 2) REMPLACE ta fonction _save_image(...) par : ──
 def _save_image(file) -> str:
-    """Save uploaded image, return public URL path."""
-    ext  = file.filename.rsplit('.', 1)[1].lower()
-    name = f"{uuid.uuid4().hex}.{ext}"
-    folder = current_app.config['UPLOAD_FOLDER']
-    path = os.path.join(folder, name)
-
-    img = Image.open(file)
-    img.thumbnail((1200, 1200))       # resize large images
-    img.save(path, optimize=True, quality=85)
-    return f'/api/uploads/{name}'
-
+    """Upload vers Cloudflare R2 (resize Pillow inclus). Retourne l'URL publique."""
+    return upload_to_r2(file)
+ 
 
 # ── GET /api/products ─────────────────────────────────────────────────────────
 @products_bp.route('/', methods=['GET'])
@@ -249,28 +241,6 @@ def meta_colors():
         colors = ['שחור','לבן','כסף','זהב','כחול','אדום','ירוק','אפור','ורוד','סגול']
     return jsonify({'colors': colors})
 
-
-# ── POST /api/products/ — create with photos ──────────────────────────────────
-# ── PUT  /api/products/<id> — update with photos ─────────────────────────────
-# These override existing create/update to handle multipart + photos
-
-import os, uuid
-from werkzeug.utils import secure_filename
-from flask import current_app
-
-ALLOWED = {'png','jpg','jpeg','webp','gif'}
-
-def _save_photo(file) -> str:
-    ext  = file.filename.rsplit('.',1)[-1].lower()
-    if ext not in ALLOWED:
-        raise ValueError(f"Invalid file type: {ext}")
-    fname = f"{uuid.uuid4().hex}.{ext}"
-    folder = current_app.config.get('UPLOAD_FOLDER', 'uploads')
-    os.makedirs(folder, exist_ok=True)
-    path  = os.path.join(folder, fname)
-    file.save(path)
-    # Return public URL — served by /api/uploads/<filename>
-    return f"/api/uploads/{fname}"
 
 
 # ── POST /api/products/import-json ────────────────────────────────────────────

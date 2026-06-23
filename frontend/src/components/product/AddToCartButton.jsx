@@ -2,6 +2,7 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ShoppingCart, Check } from 'lucide-react'
+import { useRouter } from 'next/navigation'
 import useCartStore from '@/stores/cartStore'
 import useCartUiStore from '@/stores/cartUiStore'
 import toast from 'react-hot-toast'
@@ -9,11 +10,17 @@ import toast from 'react-hot-toast'
 export default function AddToCartButton({ product }) {
   const addItem = useCartStore(s => s.addItem)
   const openCart = useCartUiStore(s => s.openCart)
+  const router = useRouter()
   const [added, setAdded] = useState(false)
 
   const handleAdd = (e) => {
     e.preventDefault()
     e.stopPropagation()
+    // Produit à variantes : on ne peut pas choisir depuis la grille → page produit
+    if (product.hasVariants) {
+      router.push(`/products/${product._id}`)
+      return
+    }
     addItem(product)
     openCart()
     toast.success(`${product.name} נוסף לסל! 🛒`)
@@ -31,7 +38,7 @@ export default function AddToCartButton({ product }) {
       <AnimatePresence mode="wait" initial={false}>
         {added
           ? <motion.span key="c" initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ opacity: 0 }} className="flex items-center gap-1"><Check className="w-3.5 h-3.5" strokeWidth={2.5} />נוסף!</motion.span>
-          : <motion.span key="s" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex items-center gap-1"><ShoppingCart className="w-3.5 h-3.5" />הוסף לסל</motion.span>}
+          : <motion.span key="s" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex items-center gap-1"><ShoppingCart className="w-3.5 h-3.5" />{product.hasVariants ? 'בחר אפשרויות' : 'הוסף לסל'}</motion.span>}
       </AnimatePresence>
     </button>
   )

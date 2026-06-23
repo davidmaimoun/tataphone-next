@@ -166,3 +166,11 @@ body {
 }
 @media (min-width: 640px)  { .products-grid { gap: 8px; } }
 @media (min-width: 1024px) { .products-grid { gap: 10px; } }
+
+/* Items de carousel : 2 visibles mobile, 4 tablette, 5 desktop */
+.carousel-item {
+  flex-shrink: 0;
+  width: calc(50% - 4px);           /* 2 par écran (mobile) */
+}
+@media (min-width: 640px)  { .carousel-item { width: calc(25% - 6px); } }   /* 4 (tablette) */
+@media (min-width: 1024px) { .carousel-item { width: calc(20% - 7px); } }   /* 5 (desktop) */

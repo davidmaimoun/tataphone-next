@@ -39,7 +39,28 @@ export default function ProductDetailClient({ product }) {
     _id, name, brand, price, originalPrice, description, images = [],
     rating = 0, reviewCount = 0, stock = 0, category, isKosher,
     specs = {}, colors = [], sizes = [], note = '',
+    options = [], variants = [], hasVariants = false,
   } = product
+
+  // ── Sélection de variante ──
+  // selAttrs = { 'צבע': 'לבן', 'אחסון': '64GB' } — valeur choisie par option
+  const [selAttrs, setSelAttrs] = useState(() => {
+    const init = {}
+    ;(options || []).forEach(o => { if (o.values?.length) init[o.name] = o.values[0] })
+    return init
+  })
+
+  // Trouve la variante qui correspond exactement aux attributs sélectionnés
+  const matchedVariant = hasVariants
+    ? variants.find(v => options.every(o => (v.attributes?.[o.name]) === selAttrs[o.name]))
+    : null
+
+  // Prix / stock affichés : ceux de la variante si trouvée, sinon le produit
+  const curPrice = matchedVariant ? matchedVariant.price : price
+  const curOrig  = matchedVariant ? matchedVariant.originalPrice : originalPrice
+  const curStock = matchedVariant ? matchedVariant.stock : stock
+
+  const pickAttr = (optName, value) => setSelAttrs(prev => ({ ...prev, [optName]: value }))
 
   // visited tracking
   useEffect(() => {
@@ -50,14 +71,19 @@ export default function ProductDetailClient({ product }) {
     } catch {}
   }, [_id])
 
-  const discPct = originalPrice > price ? Math.round((1 - price / originalPrice) * 100) : 0
+  const discPct = curOrig > curPrice ? Math.round((1 - curPrice / curOrig) * 100) : 0
   const specsObj = typeof specs === 'object' && !Array.isArray(specs) && specs !== null ? specs : {}
   const showColors = Array.isArray(colors) && colors.length > 0
   const showSizes = Array.isArray(sizes) && sizes.length > 0
   const hasSpecs = Object.keys(specsObj).length > 0
 
   const handleAdd = () => {
-    addItem(product, qty)
+    // Si le produit a des variantes, il faut en avoir une sélectionnée valide
+    if (hasVariants && !matchedVariant) {
+      toast.error('הצירוף הנבחר אינו זמין')
+      return
+    }
+    addItem(product, qty, matchedVariant)
     openCart()
     toast.success('נוסף לסל! 🛒')
     setAdded(true); setTimeout(() => setAdded(false), 1600)
@@ -103,7 +129,7 @@ export default function ProductDetailClient({ product }) {
               <div className="flex items-center gap-0.5">{[1,2,3,4,5].map(s => <Star key={s} className={`w-4 h-4 ${s <= Math.round(rating) ? 'text-amber-400 fill-amber-400' : 'text-slate-200 fill-slate-200'}`} />)}</div>
               <span className="text-[14px] font-bold text-slate-700">{rating.toFixed(1)}</span>
               <span className="text-[14px] text-slate-400">({reviewCount} ביקורות)</span>
-              {stock > 0
+              {curStock > 0
                 ? <span className="text-[12px] font-bold text-green-600 bg-green-50 px-2.5 py-1 rounded-full flex items-center gap-1"><Check className="w-3 h-3" />במלאי</span>
                 : <span className="text-[12px] font-bold text-red-600 bg-red-50 px-2.5 py-1 rounded-full">אזל מהמלאי</span>}
               {isKosher === true && <span className="text-[12px] font-bold px-2.5 py-1 rounded-full" style={{ background:'#D1FAE5', color:'#064E3B' }}>✡ כשר</span>}
@@ -111,22 +137,50 @@ export default function ProductDetailClient({ product }) {
 
             <div className="rounded-2xl p-5 mb-5 border border-primary-100" style={{ background:'linear-gradient(135deg,var(--primary-pale),#FBF7F4)' }}>
               <div className="flex items-baseline gap-3">
-                <span className="price-num" style={{ fontSize: 38, lineHeight: 1 }}>₪{price?.toLocaleString()}</span>
-                {originalPrice > price && <span className="text-xl text-slate-400 line-through">₪{originalPrice?.toLocaleString()}</span>}
+                <span className="price-num" style={{ fontSize: 38, lineHeight: 1 }}>₪{curPrice?.toLocaleString()}</span>
+                {curOrig > curPrice && <span className="text-xl text-slate-400 line-through">₪{curOrig?.toLocaleString()}</span>}
               </div>
-              {discPct > 0 && <p className="text-[14px] font-bold text-red-600 mt-1.5">🎉 חסכת ₪{(originalPrice - price).toLocaleString()} — {discPct}% הנחה!</p>}
+              {discPct > 0 && <p className="text-[14px] font-bold text-red-600 mt-1.5">🎉 חסכת ₪{(curOrig - curPrice).toLocaleString()} — {discPct}% הנחה!</p>}
             </div>
 
             {description && <p className="text-[15px] text-slate-600 leading-7 mb-5">{description}</p>}
 
-            {showColors && (
+            {/* ── Sélecteurs de variantes (basés sur options) ── */}
+            {hasVariants && options.map((opt) => {
+              const isColor = opt.name === 'צבע' || opt.name.toLowerCase() === 'color'
+              return (
+                <div key={opt.name} className="mb-5">
+                  <p className="text-[14px] font-bold text-slate-700 mb-3">
+                    {opt.name}: <span className="font-normal text-slate-500">{selAttrs[opt.name]}</span>
+                  </p>
+                  <div className="flex gap-2.5 flex-wrap">
+                    {opt.values.map((val) => {
+                      // une valeur est disponible s'il existe au moins une variante en stock la contenant
+                      const selected = selAttrs[opt.name] === val
+                      const available = variants.some(v => v.attributes?.[opt.name] === val && v.stock > 0)
+                      return isColor ? (
+                        <ColorSwatch key={val} name={val} selected={selected} onClick={() => pickAttr(opt.name, val)} />
+                      ) : (
+                        <button key={val} onClick={() => pickAttr(opt.name, val)}
+                          className="px-4 py-2 rounded-xl text-[14px] font-semibold border-2 transition-all relative"
+                          style={selected ? { borderColor:'var(--primary)', background:'var(--primary-pale)', color:'var(--primary-deep)' } : { borderColor:'#E2E8F0', background:'white', color: available ? '#64748B' : '#CBD5E1' }}>
+                          {val}{!available && <span className="text-[10px] block">אזל</span>}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              )
+            })}
+
+            {/* Produit SANS variantes : anciens sélecteurs décoratifs (colors/sizes à plat) */}
+            {!hasVariants && showColors && (
               <div className="mb-5">
                 <p className="text-[14px] font-bold text-slate-700 mb-3">צבע: <span className="font-normal text-slate-500">{colors[selColor]}</span></p>
                 <div className="flex gap-2.5 flex-wrap">{colors.map((color, i) => <ColorSwatch key={i} name={color} selected={selColor === i} onClick={() => setSelColor(i)} />)}</div>
               </div>
             )}
-
-            {showSizes && (
+            {!hasVariants && showSizes && (
               <div className="mb-5">
                 <p className="text-[14px] font-bold text-slate-700 mb-3">אחסון / מידה</p>
                 <div className="flex gap-2 flex-wrap">
@@ -145,9 +199,10 @@ export default function ProductDetailClient({ product }) {
                 <span className="px-4 font-bold text-[15px] text-slate-800 min-w-[2.5rem] text-center">{qty}</span>
                 <button onClick={() => setQty(q => q + 1)} className="px-4 py-3 text-lg font-bold text-slate-600 hover:bg-slate-50">+</button>
               </div>
-              <button onClick={handleAdd} className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-bold text-[15px] text-white transition-all"
+              <button onClick={handleAdd} disabled={curStock <= 0}
+                className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-bold text-[15px] text-white transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                 style={{ background: added ? 'linear-gradient(135deg,#059669,#10B981)' : 'linear-gradient(135deg,var(--primary),var(--primary-dark))' }}>
-                {added ? <><Check className="w-5 h-5" strokeWidth={2.5} />נוסף לסל!</> : <><ShoppingCart className="w-5 h-5" />הוסף לסל</>}
+                {curStock <= 0 ? 'אזל מהמלאי' : added ? <><Check className="w-5 h-5" strokeWidth={2.5} />נוסף לסל!</> : <><ShoppingCart className="w-5 h-5" />הוסף לסל</>}
               </button>
               <button onClick={() => toggle(_id, user)} className="w-12 h-12 rounded-xl border-2 flex items-center justify-center transition-all" style={{ borderColor: liked ? '#FCA5A5' : '#E2E8F0', background: liked ? '#FFF1F2' : 'white' }}>
                 <Heart className={`w-5 h-5 ${liked ? 'fill-red-400 text-red-400' : 'text-slate-400'}`} />

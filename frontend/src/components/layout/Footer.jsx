@@ -30,7 +30,6 @@ export default function Footer() {
           <div className="lg:col-span-2">
             <div className="mb-5 flex items-center gap-3">
               <img src="/logo.png" alt="טאטעפון" className="h-10 w-auto object-contain" />
-              <span className="font-rubik text-2xl font-black"><span className="text-primary-400">טאטע</span><span className="text-white">פון</span></span>
             </div>
             <p className="text-sm text-slate-300 leading-7 mb-6 max-w-xs">
               המקום המוביל לטכנולוגיה כשרה בישראל. כל המוצרים מאושרים ומותאמים לציבור הדתי. אנו מחויבים לאיכות ולשירות הטוב ביותר.

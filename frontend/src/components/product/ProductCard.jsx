@@ -5,8 +5,12 @@ import WishlistHeart from './WishlistHeart'
 
 // SERVER COMPONENT — rendu côté serveur (SEO + perf).
 // Seuls <AddToCartButton> et <WishlistHeart> sont des îlots client.
-export default function ProductCard({ product, forceNew = false }) {
-  const { _id, name, brand, price, originalPrice, discount, images = [], isNew, isKosher } = product
+export default function ProductCard({ product, forceNew = false, rank = undefined }) {
+  const { _id, name, brand, price, originalPrice, discount, images = [], isNew, isKosher,
+          priceMin, priceMax, hasVariants } = product
+  // Prix d'affichage : si variantes à prix multiples → "à partir de" le moins cher
+  const showFrom = hasVariants && priceMax > priceMin
+  const displayPrice = (priceMin != null ? priceMin : price)
   const img = images[0]
   const discPct = discount && originalPrice > price ? Math.round((1 - price / originalPrice) * 100) : 0
   const showNew = forceNew || isNew
@@ -17,6 +21,12 @@ export default function ProductCard({ product, forceNew = false }) {
 
       {/* Image */}
       <div className="relative flex-shrink-0 overflow-hidden bg-slate-50" style={{ height: 180 }}>
+        {rank !== undefined && (
+          <span className="absolute top-2 right-2 z-10 w-7 h-7 rounded-full flex items-center justify-center text-[13px] font-black text-white shadow-md"
+            style={{ background: rank<=3 ? 'linear-gradient(135deg,var(--primary),var(--primary-deep))' : 'rgba(58,42,34,0.55)' }}>
+            {rank}
+          </span>
+        )}
         {img
           ? <Image src={img} alt={name} fill sizes="(max-width:640px) 50vw, 200px" unoptimized
                    className="object-cover group-hover:scale-105 transition-transform duration-300" />
@@ -58,8 +68,11 @@ export default function ProductCard({ product, forceNew = false }) {
         {/* Price + cart — always bottom */}
         <div className="mt-auto pt-2">
           <div className="h-10 flex flex-col justify-center">
-            <span className="price-num" style={{ fontSize: 18, lineHeight: 1 }}>₪{price?.toLocaleString()}</span>
-            {originalPrice > price
+            <span className="price-num flex items-baseline gap-1" style={{ fontSize: 18, lineHeight: 1 }}>
+              {showFrom && <span className="text-[10px] font-bold text-slate-400">החל מ-</span>}
+              ₪{displayPrice?.toLocaleString()}
+            </span>
+            {!showFrom && originalPrice > price
               ? <span className="text-[10px] text-slate-400 line-through">₪{originalPrice?.toLocaleString()}</span>
               : <span className="h-[14px]" />}
           </div>

@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect, useCallback } from 'react'
 import { useDropzone } from 'react-dropzone'
-import { Plus, Pencil, Trash2, Search, X, Check, Star, Upload, Layers, Building2, Tag, Zap, ChevronDown, ChevronUp } from 'lucide-react'
+import { Plus, Pencil, Trash2, Search, X, Check, Star, Upload, Layers, Building2, Tag, Zap, ChevronDown, ChevronUp, RefreshCw } from 'lucide-react'
 import metaService from '@/services/metaService'
 import { productAdmin } from '@/services/productService'
 import productService from '@/services/productService'
@@ -91,6 +91,108 @@ function MetaPanel() {
           <MetaManager collection="categories" label="קטגוריות" icon={Layers} color="#CC785C" />
           <MetaManager collection="brands" label="מותגים" icon={Building2} color="#7C3AED" />
           <MetaManager collection="tags" label="תגיות" icon={Tag} color="#059669" />
+        </div>
+      )}
+    </div>
+  )
+}
+
+
+// ════════════════════════════════════════════════════════════════
+//  Éditeur de variantes (options + combinaisons prix/stock/SKU)
+// ════════════════════════════════════════════════════════════════
+function VariantsEditor({ options, setOptions, variants, setVariants }) {
+  const [open, setOpen] = useState(false)
+
+  const addOption = () => setOptions(p => [...p, { name: '', values: [] }])
+  const updateOptionName = (i, name) => setOptions(p => p.map((o, idx) => idx === i ? { ...o, name } : o))
+  const removeOption = (i) => setOptions(p => p.filter((_, idx) => idx !== i))
+  const addValue = (i, val) => {
+    const v = val.trim(); if (!v) return
+    setOptions(p => p.map((o, idx) => idx === i ? { ...o, values: [...new Set([...(o.values||[]), v])] } : o))
+  }
+  const removeValue = (i, val) => setOptions(p => p.map((o, idx) => idx === i ? { ...o, values: o.values.filter(x => x !== val) } : o))
+
+  // Génère toutes les combinaisons à partir des options (produit cartésien)
+  const generateVariants = () => {
+    const valid = options.filter(o => o.name?.trim() && o.values?.length)
+    if (!valid.length) { setVariants([]); return }
+    let combos = [{}]
+    valid.forEach(opt => {
+      const next = []
+      combos.forEach(combo => opt.values.forEach(val => next.push({ ...combo, [opt.name]: val })))
+      combos = next
+    })
+    // Conserve les valeurs déjà saisies si la combinaison existait
+    setVariants(combos.map(attrs => {
+      const existing = variants.find(v => valid.every(o => v.attributes?.[o.name] === attrs[o.name]))
+      return existing || { sku: '', attributes: attrs, price: '', originalPrice: '', stock: 0, supplierPrice: '', image: '' }
+    }))
+  }
+
+  const updateVariant = (i, field, val) => setVariants(p => p.map((v, idx) => idx === i ? { ...v, [field]: val } : v))
+
+  return (
+    <div className="border-2 border-dashed border-primary-200 rounded-2xl p-4 bg-primary-50/30">
+      <button type="button" onClick={() => setOpen(o => !o)} className="flex items-center justify-between w-full">
+        <span className="text-[14px] font-black text-primary-700 flex items-center gap-2"><Plus className="w-4 h-4" />וריאציות (צבע, אחסון — עם מחיר/מלאי שונה)</span>
+        <span className="text-[12px] text-slate-400">{variants.length ? `${variants.length} וריאציות` : 'אופציונלי'}</span>
+      </button>
+
+      {open && (
+        <div className="mt-4 space-y-4">
+          {/* Options */}
+          <div className="space-y-3">
+            {options.map((opt, i) => (
+              <div key={i} className="bg-white rounded-xl p-3 border border-slate-100">
+                <div className="flex gap-2 items-center mb-2">
+                  <input value={opt.name} onChange={e => updateOptionName(i, e.target.value)} dir="rtl" className="input text-sm font-bold flex-1" placeholder="שם האפשרות (צבע, אחסון...)" />
+                  <button type="button" onClick={() => removeOption(i)} className="w-8 h-8 rounded-lg bg-red-50 text-red-400 hover:bg-red-100 flex items-center justify-center"><X className="w-4 h-4" /></button>
+                </div>
+                <div className="flex flex-wrap gap-1.5 items-center">
+                  {opt.values.map(val => (
+                    <span key={val} className="inline-flex items-center gap-1 text-[12px] font-semibold bg-primary-100 text-primary-700 px-2.5 py-1 rounded-full">
+                      {val}<button type="button" onClick={() => removeValue(i, val)} className="hover:text-red-500"><X className="w-3 h-3" /></button>
+                    </span>
+                  ))}
+                  <input dir="rtl" className="input text-xs px-2 py-1 h-auto w-28" placeholder="ערך + Enter"
+                    onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addValue(i, e.target.value); e.target.value = '' } }} />
+                </div>
+              </div>
+            ))}
+            <button type="button" onClick={addOption} className="flex items-center gap-1.5 text-xs font-semibold text-primary-600 bg-primary-50 hover:bg-primary-100 px-3 py-1.5 rounded-lg transition-colors"><Plus className="w-3.5 h-3.5" />הוסף אפשרות</button>
+          </div>
+
+          {/* Générer les combinaisons */}
+          <button type="button" onClick={generateVariants} className="btn btn-secondary px-4 py-2 text-[13px] gap-2"><RefreshCw className="w-3.5 h-3.5" />צור / רענן וריאציות</button>
+
+          {/* Tableau des variantes */}
+          {variants.length > 0 && (
+            <div className="overflow-x-auto">
+              <table className="w-full text-right text-[12px] min-w-[560px]">
+                <thead className="text-[11px] text-slate-400">
+                  <tr>
+                    <th className="py-1.5 px-2">צירוף</th><th className="py-1.5 px-2">מק"ט</th>
+                    <th className="py-1.5 px-2">מחיר</th><th className="py-1.5 px-2">מחיר מקורי</th>
+                    <th className="py-1.5 px-2">מלאי</th><th className="py-1.5 px-2">עלות ספק</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50">
+                  {variants.map((v, i) => (
+                    <tr key={i}>
+                      <td className="py-1.5 px-2 font-semibold text-slate-700 whitespace-nowrap">{Object.values(v.attributes || {}).join(' · ')}</td>
+                      <td className="py-1.5 px-2"><input value={v.sku || ''} onChange={e => updateVariant(i,'sku',e.target.value)} dir="ltr" className="input text-xs w-24" placeholder="SKU" /></td>
+                      <td className="py-1.5 px-2"><input type="number" value={v.price ?? ''} onChange={e => updateVariant(i,'price',e.target.value)} className="input text-xs w-20" placeholder="₪" /></td>
+                      <td className="py-1.5 px-2"><input type="number" value={v.originalPrice ?? ''} onChange={e => updateVariant(i,'originalPrice',e.target.value)} className="input text-xs w-20" placeholder="₪" /></td>
+                      <td className="py-1.5 px-2"><input type="number" value={v.stock ?? 0} onChange={e => updateVariant(i,'stock',e.target.value)} className="input text-xs w-16" /></td>
+                      <td className="py-1.5 px-2"><input type="number" value={v.supplierPrice ?? ''} onChange={e => updateVariant(i,'supplierPrice',e.target.value)} className="input text-xs w-20" placeholder="₪" /></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <p className="text-[11px] text-slate-400 mt-2">💡 כשיש וריאציות, המחיר/מלאי שלהן גוברים על מחיר המוצר הראשי. בכרטיס יוצג "החל מ-" המחיר הנמוך.</p>
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -192,6 +294,9 @@ function ProductModal({ product, onClose, onSave }) {
     isKosher: product.isKosher !== false,
   } : { name:'', brand:'', sku:'', category:'', description:'', price:'', originalPrice:'', supplierPrice:'', stock:0, selectedColors:[], selectedSizes:[], tags:[], isKosher:true })
   const [photos, setPhotos] = useState((product?.images || []).map((url, i) => ({ url, isMain: i === 0, file: null })))
+  // ── Variantes ──
+  const [options, setOptions] = useState(() => Array.isArray(product?.options) ? product.options : [])
+  const [variants, setVariants] = useState(() => Array.isArray(product?.variants) ? product.variants : [])
   const set = k => e => setForm(p => ({ ...p, [k]: e.target.value }))
 
   useEffect(() => {
@@ -232,6 +337,8 @@ function ProductModal({ product, onClose, onSave }) {
       fd.append('specs', JSON.stringify(specsObj))
       fd.append('note', note)
       fd.append('details', JSON.stringify(details.filter(s => s.title.trim() || s.body.trim())))
+      fd.append('options', JSON.stringify(options.filter(o => o.name?.trim() && o.values?.length)))
+      fd.append('variants', JSON.stringify(variants.filter(v => v.sku?.trim() || Object.keys(v.attributes||{}).length)))
       fd.append('isKosher', form.isKosher ? 'true' : 'false')
       // isAccessory auto-derived: a product is "accessory" if it has tags AND is cheap — backend may infer. We send false by default unless backend handles tags.
       const sorted = [...photos].sort((a, b) => b.isMain - a.isMain)
@@ -360,6 +467,9 @@ function ProductModal({ product, onClose, onSave }) {
             <label className="block text-xs font-bold text-slate-500 mb-2">מידות</label>
             <div className="flex flex-wrap gap-2">{DEFAULT_SIZES.map(s => <button type="button" key={s} onClick={() => toggleSize(s)} className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all ${form.selectedSizes?.includes(s) ? 'bg-primary-600 text-white border-primary-600' : 'bg-white text-slate-600 border-slate-200 hover:border-primary-300'}`}>{s}</button>)}</div>
           </div>
+
+          {/* Variantes */}
+          <VariantsEditor options={options} setOptions={setOptions} variants={variants} setVariants={setVariants} />
 
           {/* Note */}
           <div><label className="block text-xs font-bold text-slate-500 mb-1.5">הערת מנהל <span className="font-normal text-slate-400">("כדאי לדעת")</span></label><textarea value={note} onChange={e => setNote(e.target.value)} rows={2} dir="rtl" className="input resize-none text-sm" placeholder="לדוגמה: מחיר כולל מתאם ישראלי." /></div>

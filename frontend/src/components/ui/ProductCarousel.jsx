@@ -3,10 +3,9 @@ import { useRef, useEffect, useState } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import ProductCard from '@/components/product/ProductCard'
 
-const CARD_W = 200
-const SCROLL_BY = CARD_W * 2 + 16
+// SCROLL_BY calculé dynamiquement (largeur du conteneur)
 
-export default function ProductCarousel({ products = [], loading = false, forceNew = false }) {
+export default function ProductCarousel({ products = [], loading = false, forceNew = false, showRank = false }) {
   const trackRef = useRef(null)
   const drag = useRef({ on: false, startX: 0, scrollLeft: 0, moved: false })
   const [canPrev, setCanPrev] = useState(false)
@@ -24,8 +23,8 @@ export default function ProductCarousel({ products = [], loading = false, forceN
   }
 
   // RTL : signes inversés (convention de ce projet)
-  const goNext = () => { trackRef.current?.scrollBy({ left: -SCROLL_BY, behavior: 'smooth' }); setTimeout(updateArrows, 400) }
-  const goPrev = () => { trackRef.current?.scrollBy({ left: SCROLL_BY, behavior: 'smooth' }); setTimeout(updateArrows, 400) }
+  const goNext = () => { const w = trackRef.current?.clientWidth || 600; trackRef.current?.scrollBy({ left: -(w*0.8), behavior: 'smooth' }); setTimeout(updateArrows, 400) }
+  const goPrev = () => { const w = trackRef.current?.clientWidth || 600; trackRef.current?.scrollBy({ left: (w*0.8), behavior: 'smooth' }); setTimeout(updateArrows, 400) }
 
   useEffect(() => {
     const el = trackRef.current
@@ -85,8 +84,8 @@ export default function ProductCarousel({ products = [], loading = false, forceN
         <div className="absolute left-0 top-0 bottom-2 w-8 z-10 pointer-events-none" style={{ background: 'linear-gradient(to right,rgba(255,255,255,0.6),transparent)' }} />
         <div ref={trackRef} className="flex gap-2 overflow-x-auto no-scrollbar pb-2" style={{ cursor: 'grab' }}>
           {items.map((p, i) => (
-            <div key={p._id} style={{ flexShrink: 0, width: CARD_W, display: 'flex' }}>
-              {p._skeleton ? <SkeletonCard /> : <ProductCard product={p} index={i} forceNew={forceNew} />}
+            <div key={p._id} className="carousel-item" style={{ display: 'flex' }}>
+              {p._skeleton ? <SkeletonCard /> : <ProductCard product={p} index={i} forceNew={forceNew} rank={showRank ? i+1 : undefined} />}
             </div>
           ))}
         </div>

@@ -174,13 +174,18 @@ def google_callback():
     state = request.args.get('state')
     error = request.args.get('error')
 
+    print(f"[GOOGLE] callback reçu — code={'oui' if code else 'non'}, state={state}")   
+
     if error or not code:
+        print("[GOOGLE] → google_cancelled")                                              
         return redirect(f"{APP_URL}/login?error=google_cancelled")
 
-    # Verify state (CSRF protection)
     rec = get_db()['oauth_states'].find_one_and_delete({'state': state})
+    print(f"[GOOGLE] state trouvé en base ? {'oui' if rec else 'NON'}")                   
     if not rec or rec['expiresAt'] < datetime.datetime.utcnow():
+        print("[GOOGLE] → invalid_state")                                                 
         return redirect(f"{APP_URL}/login?error=invalid_state")
+    
 
     # Exchange code for tokens
     token_resp = http_requests.post('https://oauth2.googleapis.com/token', data={
@@ -190,7 +195,12 @@ def google_callback():
         'redirect_uri':  GOOGLE_REDIRECT_URI,
         'grant_type':    'authorization_code',
     })
+   
     if token_resp.status_code != 200:
+        print(f"[GOOGLE] ÉCHANGE ÉCHOUÉ — HTTP {token_resp.status_code}")
+        print(f"[GOOGLE] réponse Google: {token_resp.text}")
+        print(f"[GOOGLE] redirect_uri envoyé: {GOOGLE_REDIRECT_URI}")
+        print(f"[GOOGLE] client_id présent: {bool(GOOGLE_CLIENT_ID)}, secret présent: {bool(GOOGLE_CLIENT_SECRET)}")
         return redirect(f"{APP_URL}/login?error=token_exchange_failed")
 
     tokens   = token_resp.json()
@@ -201,8 +211,10 @@ def google_callback():
         'https://oauth2.googleapis.com/tokeninfo',
         params={'id_token': id_token},
     )
+
     if info_resp.status_code != 200:
         return redirect(f"{APP_URL}/login?error=invalid_token")
+        
 
     info = info_resp.json()
 
@@ -210,6 +222,7 @@ def google_callback():
     print(f"[GOOGLE] email={info.get('email')} name={info.get('name')}")
     user = UserModel.find_by_email(info['email'])
     print(f"[GOOGLE] existing user: {user is not None}")
+    
     if not user:
         user = UserModel.create_user({
             'name':     info.get('name', ''),

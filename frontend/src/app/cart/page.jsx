@@ -9,6 +9,7 @@ export default function CartPage() {
   const items = useCartStore(s => s.items)
   const removeItem = useCartStore(s => s.removeItem)
   const updateQty = useCartStore(s => s.updateQty)
+  const lineKey = useCartStore(s => s.lineKey)
 
   const total = items.reduce((sum, i) => sum + i.price * i.qty, 0)
   const shipping = total >= 500 || total === 0 ? 0 : 30
@@ -38,7 +39,7 @@ export default function CartPage() {
         {/* Items */}
         <div className="lg:col-span-2 space-y-3">
           {items.map(item => (
-            <div key={item._id} className="bg-white rounded-2xl border border-slate-100 p-3 sm:p-4 flex gap-3 sm:gap-4 shadow-sm hover:shadow-md transition-shadow">
+            <div key={lineKey(item)} className="bg-white rounded-2xl border border-slate-100 p-3 sm:p-4 flex gap-3 sm:gap-4 shadow-sm hover:shadow-md transition-shadow">
               <div className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-xl overflow-hidden bg-slate-50 flex-shrink-0">
                 {item.images?.[0]
                   ? <Image src={item.images[0]} alt={item.name} fill sizes="80px" unoptimized className="object-cover" />
@@ -47,16 +48,17 @@ export default function CartPage() {
               <div className="flex-1 min-w-0">
                 <p className="text-[11px] font-bold text-primary-500 uppercase">{item.brand}</p>
                 <Link href={`/products/${item._id}`} className="font-semibold text-slate-800 text-[14px] line-clamp-1 hover:text-primary-600">{item.name}</Link>
+                {item.variantLabel && <p className="text-[11px] text-slate-400 mt-0.5">{item.variantLabel}</p>}
                 <p className="price-num text-[16px] mt-1">₪{item.price?.toLocaleString()}</p>
               </div>
               <div className="flex flex-col items-end justify-between">
-                <button onClick={() => removeItem(item._id)} className="text-slate-300 hover:text-red-500 transition-colors">
+                <button onClick={() => removeItem(lineKey(item))} className="text-slate-300 hover:text-red-500 transition-colors">
                   <Trash2 className="w-4 h-4" />
                 </button>
                 <div className="flex items-center border border-slate-200 rounded-lg overflow-hidden">
-                  <button onClick={() => updateQty(item._id, item.qty - 1)} className="px-2 py-1 hover:bg-slate-50"><Minus className="w-3 h-3" /></button>
+                  <button onClick={() => updateQty(lineKey(item), item.qty - 1)} className="px-2 py-1 hover:bg-slate-50"><Minus className="w-3 h-3" /></button>
                   <span className="px-3 text-[14px] font-bold">{item.qty}</span>
-                  <button onClick={() => updateQty(item._id, item.qty + 1)} className="px-2 py-1 hover:bg-slate-50"><Plus className="w-3 h-3" /></button>
+                  <button onClick={() => updateQty(lineKey(item), item.qty + 1)} className="px-2 py-1 hover:bg-slate-50"><Plus className="w-3 h-3" /></button>
                 </div>
               </div>
             </div>

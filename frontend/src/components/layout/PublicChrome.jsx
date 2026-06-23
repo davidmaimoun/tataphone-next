@@ -11,7 +11,7 @@ export default function PublicChrome({ children }) {
   return (
     <>
       <Navbar />
-      <main className="flex-1">{children}</main>
+      <main className="flex-1" style={{ minHeight: '60vh' }}>{children}</main>
       <Footer />
       <CartDrawer />
     </>

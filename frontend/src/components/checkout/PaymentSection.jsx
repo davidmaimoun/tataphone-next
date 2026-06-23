@@ -34,15 +34,23 @@ export default function PaymentSection({ form, totalTTC, subtotal, vatAmount, it
     } catch { toast.error('שגיאה בחיבור ל-PayPal') } finally { setLoading(null) }
   }
 
-  const handlePayPlus = async () => {
+  const handleGrow = async () => {
     if (!validate()) return
-    setLoading('payplus')
+    setLoading('grow')
     try {
-      sessionStorage.setItem('pending_order', JSON.stringify({ form, totalTTC, subtotal, vatAmount, items }))
-      const { data } = await api.post('/orders/payplus/create', { amount: totalTTC, customer: form, returnUrl: `${window.location.origin}/order-success?payment=payplus` })
+      // 1) crée la commande (pending) pour obtenir un orderId
+      const order = await orderService.create({
+        customer: form,
+        items: items.map(i => ({ product: i._id, qty: i.qty, price: i.price, name: i.name })),
+        subtotal, vat: vatAmount, total: totalTTC,
+        paymentMethod: 'grow', paymentStatus: 'pending',
+      })
+      // 2) crée le lien de paiement Grow
+      const { data } = await api.post('/orders/grow/create', { orderId: order._id, amount: totalTTC, customer: form })
+      // 3) redirige vers la page de paiement Grow
       if (data.paymentUrl) window.location.href = data.paymentUrl
       else toast.error('שגיאה ביצירת דף תשלום')
-    } catch { toast.error('שגיאה בחיבור ל-PayPlus') } finally { setLoading(null) }
+    } catch { toast.error('שגיאה בחיבור לסליקה') } finally { setLoading(null) }
   }
 
   const handleTest = async () => {
@@ -60,8 +68,8 @@ export default function PaymentSection({ form, totalTTC, subtotal, vatAmount, it
       <button onClick={handlePayPal} disabled={!!loading} type="button" className="w-full flex items-center justify-center gap-2 py-3 rounded-xl font-bold text-[14px] transition-all hover:opacity-90 hover:shadow-md disabled:opacity-40" style={{ background:'#FFC439', color:'#003087' }}>
         {loading==='paypal' ? <Spin col="#003087" /> : <><svg viewBox="0 0 24 24" className="h-4 w-4" fill="#003087"><path d="M7.076 21.337H2.47a.641.641 0 0 1-.633-.74L4.944.901C5.026.382 5.474 0 5.998 0h7.46c2.57 0 4.578.543 5.69 1.81 1.01 1.15 1.304 2.42 1.012 4.287-.023.143-.047.288-.077.437-.983 5.05-4.349 6.797-8.647 6.797h-2.19c-.524 0-.968.382-1.05.9l-1.12 7.106z"/></svg>PayPal</>}
       </button>
-      <button onClick={handlePayPlus} disabled={!!loading} type="button" className="w-full flex items-center justify-center gap-2 py-3 rounded-xl font-bold text-[14px] text-white transition-all hover:opacity-90 hover:shadow-md disabled:opacity-40" style={{ background:'linear-gradient(135deg,#1A56DB,#1E3A8A)' }}>
-        {loading==='payplus' ? <Spin /> : <><CreditCard className="w-4 h-4" />תשלום מאובטח בכרטיס אשראי</>}
+      <button onClick={handleGrow} disabled={!!loading} type="button" className="w-full flex items-center justify-center gap-2 py-3 rounded-xl font-bold text-[14px] text-white transition-all hover:opacity-90 hover:shadow-md disabled:opacity-40" style={{ background:'linear-gradient(135deg,var(--primary),var(--primary-deep))' }}>
+        {loading==='grow' ? <Spin /> : <><CreditCard className="w-4 h-4" />תשלום מאובטח בכרטיס אשראי</>}
       </button>
       {IS_TEST && (
         <button onClick={handleTest} disabled={!!loading} type="button" className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl font-bold text-[12px] bg-amber-50 border-2 border-dashed border-amber-300 text-amber-700 hover:bg-amber-100 transition-all disabled:opacity-40">
