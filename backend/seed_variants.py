@@ -1,7 +1,10 @@
 """
-seed_variants.py — Ajoute 2 produits À VARIANTES pour tester le système.
+seed_variants.py — Ajoute des produits À VARIANTES pour tester le système.
 Usage :  python seed_variants.py
-(N'efface rien — ajoute juste 2 produits de démo avec variantes)
+(N'efface rien — upsert par SKU, relançable)
+
+⚠️ Ces produits sont VISIBLES sur le site. Préfère tester en LOCAL.
+   Sur le serveur de prod, supprime-les après test (admin ou delete par SKU).
 """
 from datetime import datetime, timedelta
 from app.db import get_db, init_db
@@ -21,7 +24,6 @@ def details(desc):
 
 NOW = datetime.utcnow()
 
-# Helper : calcule pricing dérivé (comme le modèle)
 def derive(doc):
     variants = doc.get('variants', [])
     if variants:
@@ -34,9 +36,27 @@ def derive(doc):
         doc['hasVariants'] = True
         doc['priceMin'] = min(prices)
         doc['priceMax'] = max(prices)
+    else:
+        doc['hasVariants'] = False
+        doc['priceMin'] = doc.get('price', 0)
+        doc['priceMax'] = doc.get('price', 0)
     return doc
 
 PRODUCTS = [
+    # ── Produit TEST à 5₪ pour tester un vrai paiement Grow à moindre risque ──
+    derive({
+        'name': 'Zol Zol iPhone (בדיקה)', 'brand': 'Test', 'sku': 'ZOL-ZOL-TEST',
+        'category': 'בדיקה', 'description': 'מוצר בדיקה לתשלום — אל תמחק עד אחרי בדיקת הסליקה.',
+        'details': details('מוצר בדיקה בלבד. מחיר סמלי לבדיקת תשלום Grow.'),
+        'images': PHONE_IMG, 'rating': 5, 'reviewCount': 1,
+        'isKosher': True, 'isNew': True, 'isTopRated': False,
+        'note': 'מוצר בדיקה — מחיר 5 ₪ לבדיקת סליקה אמיתית.',
+        'specs': {}, 'tags': ['test'],
+        'options': [], 'variants': [],
+        'price': 5, 'originalPrice': None,
+        'colors': [], 'sizes': [], 'stock': 999, 'supplierPrice': 0,
+        'createdAt': NOW, 'updatedAt': NOW,
+    }),
     derive({
         'name': 'iPhone 15 Pro כשר', 'brand': 'Apple', 'sku': 'APL-15P-K',
         'category': 'סמארטפונים', 'description': 'iPhone 15 Pro בגרסה כשרה — בחר צבע ונפח אחסון.',
@@ -88,12 +108,25 @@ def run():
     db = get_db()
     col = db['products']
     for p in PRODUCTS:
-        # upsert par sku pour ne pas dupliquer si relancé
         col.update_one({'sku': p['sku']}, {'$set': p}, upsert=True)
-    print(f"[SEED] {len(PRODUCTS)} produits à variantes ajoutés ✓")
+    print(f"[SEED] {len(PRODUCTS)} produits ajoutés/mis à jour ✓")
     for p in PRODUCTS:
-        print(f"  - {p['name']} : {len(p['variants'])} variantes, prix {p['priceMin']}–{p['priceMax']}")
+        nv = len(p.get('variants', []))
+        print(f"  - {p['name']} : {nv} variantes, prix {p['priceMin']}–{p['priceMax']}")
+
+
+# Pour SUPPRIMER les produits test après coup :  python seed_variants.py --clean
+def clean():
+    init_db()
+    db = get_db()
+    skus = [p['sku'] for p in PRODUCTS]
+    res = db['products'].delete_many({'sku': {'$in': skus}})
+    print(f"[CLEAN] {res.deleted_count} produits test supprimés ✓")
 
 
 if __name__ == '__main__':
-    run()
+    import sys
+    if '--clean' in sys.argv:
+        clean()
+    else:
+        run()
