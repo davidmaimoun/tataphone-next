@@ -1,8 +1,8 @@
 'use client'
 import { useState } from 'react'
 import { CreditCard, Loader2, FlaskConical } from 'lucide-react'
-import api from '@/services/api'
 import orderService from '@/services/orderService'
+import paymentService from '@/services/paymentService'
 import toast from 'react-hot-toast'
 
 const IS_TEST = process.env.NEXT_PUBLIC_TEST_MODE === 'true'
@@ -17,10 +17,10 @@ export default function PaymentSection({ form, totalTTC, subtotal, vatAmount, it
     return true
   }
 
-  const createOrder = async (paymentMethod) => orderService.create({
+  const createOrder = async (paymentMethod, paymentStatus = 'paid') => orderService.create({
     customer: form,
     items: items.map(i => ({ product: i._id, qty: i.qty, price: i.price, name: i.name })),
-    subtotal, vat: vatAmount, total: totalTTC, paymentMethod, paymentStatus: 'paid',
+    subtotal, vat: vatAmount, total: totalTTC, paymentMethod, paymentStatus,
   })
 
   const handlePayPal = async () => {
@@ -28,7 +28,11 @@ export default function PaymentSection({ form, totalTTC, subtotal, vatAmount, it
     setLoading('paypal')
     try {
       sessionStorage.setItem('pending_order', JSON.stringify({ form, totalTTC, subtotal, vatAmount, items }))
-      const { data } = await api.post('/orders/paypal/create', { amount: totalTTC, returnUrl: `${window.location.origin}/order-success?payment=paypal`, cancelUrl: `${window.location.origin}/checkout` })
+      const data = await paymentService.paypalCreate(
+        totalTTC,
+        `${window.location.origin}/order-success?payment=paypal`,
+        `${window.location.origin}/checkout`
+      )
       if (data.approvalUrl) window.location.href = data.approvalUrl
       else toast.error('שגיאה ביצירת תשלום PayPal')
     } catch { toast.error('שגיאה בחיבור ל-PayPal') } finally { setLoading(null) }
@@ -39,14 +43,9 @@ export default function PaymentSection({ form, totalTTC, subtotal, vatAmount, it
     setLoading('grow')
     try {
       // 1) crée la commande (pending) pour obtenir un orderId
-      const order = await orderService.create({
-        customer: form,
-        items: items.map(i => ({ product: i._id, qty: i.qty, price: i.price, name: i.name })),
-        subtotal, vat: vatAmount, total: totalTTC,
-        paymentMethod: 'grow', paymentStatus: 'pending',
-      })
-      // 2) crée le lien de paiement Grow
-      const { data } = await api.post('/orders/grow/create', { orderId: order._id, amount: totalTTC, customer: form })
+      const order = await createOrder('grow', 'pending')
+      // 2) crée le lien de paiement Grow (via Make)
+      const data = await paymentService.growCreate(order._id, totalTTC, form)
       // 3) redirige vers la page de paiement Grow
       if (data.paymentUrl) window.location.href = data.paymentUrl
       else toast.error('שגיאה ביצירת דף תשלום')

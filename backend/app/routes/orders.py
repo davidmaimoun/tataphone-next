@@ -397,82 +397,88 @@ def paypal_capture():
 # ── POST /api/orders/grow/create ─────────────────────────────────────────────
 @orders_bp.route('/grow/create', methods=['POST'])
 def grow_create():
-    """Crée un lien de paiement Grow (redirection). Body Grow = FormData."""
+    """Crée un lien de paiement Grow VIA MAKE.
+    On envoie les données au webhook Make, qui appelle Grow et renvoie l'URL."""
     import os, requests as req
     data     = request.get_json() or {}
-    amount   = float(data.get('amount', 0))
+    amount   = float(data.get('amount', 0) or 0)
     order_id = data.get('orderId', '')
     customer = data.get('customer', {})
-
-    user_id   = os.getenv('GROW_USER_ID', '')
-    page_code = os.getenv('GROW_PAGE_CODE', '')
-    sandbox   = os.getenv('GROW_SANDBOX', 'true') == 'true'
-    base      = 'https://sandbox.grow.link' if sandbox else 'https://secure.grow.link'
-    app_url   = os.getenv('APP_URL', 'http://localhost:3000')
-    backend   = os.getenv('BACKEND_URL', 'http://localhost:5000')
-
-    if not user_id or not page_code:
-        return jsonify({'error': 'Grow not configured'}), 500
-
+ 
+    make_webhook = os.getenv('GROW_MAKE_WEBHOOK', '')
+    if not make_webhook:
+        return jsonify({'error': 'Grow/Make not configured'}), 500
+ 
+    # Nom complet (Grow l'exige)
+    full_name = f"{customer.get('firstName','')} {customer.get('lastName','')}".strip()
+    # Téléphone : Grow l'EXIGE. Si absent → valeur de repli (à éviter, voir note).
+    phone = (customer.get('phone') or '').strip() or '0500000000'
+    title = f"הזמנה #{str(order_id)[-8:].upper()}"
+ 
+    # Payload envoyé à Make (mêmes clés que dans ton scénario Make :
+    # fullName, phone, amount, title, orderId — + email/productName/price)
     payload = {
-        'pageCode':            page_code,
-        'userId':              user_id,
-        'sum':                 f'{amount:.2f}',
-        'description':         f'הזמנה #{str(order_id)[-8:].upper()}',
-        'pageField[fullName]': f"{customer.get('firstName','')} {customer.get('lastName','')}".strip(),
-        'pageField[phone]':    customer.get('phone', ''),
-        'pageField[email]':    customer.get('email', ''),
-        'successUrl':          f'{app_url}/order-success?grow=success&orderId={order_id}',
-        'cancelUrl':           f'{app_url}/checkout?grow=cancel',
-        'notifyUrl':           f'{backend}/api/orders/grow/webhook',
-        'cField1':             str(order_id),
+        'fullName':    full_name or 'לקוח',
+        'phone':       phone,
+        'amount':      f'{amount:.2f}',
+        'title':       title,
+        'orderId':     str(order_id),
+        'email':       customer.get('email', ''),
+        'productName': title,
+        'price':       f'{amount:.2f}',
     }
-    resp = req.post(f'{base}/api/light/server/1.0/createPaymentLink',
-                    data=payload, timeout=20)
-    result = resp.json()
-    if result.get('status') == 1 and result.get('data', {}).get('url'):
-        return jsonify({'paymentUrl': result['data']['url'],
-                        'processId':  result['data'].get('processId'),
-                        'processToken': result['data'].get('processToken')})
-    return jsonify({'error': 'Grow create failed', 'detail': result.get('err') or result}), 400
+ 
+    try:
+        resp = req.post(make_webhook, json=payload, timeout=30)
+        # Make (Webhook Response) renvoie { paymentUrl, processId }
+        print(resp)
 
+        result = resp.json() if resp.headers.get('content-type','').startswith('application/json') else {}
+    except Exception as e:
+        return jsonify({'error': f'Make call failed: {e}'}), 502
+ 
+    pay_url = result.get('paymentUrl')
+    print(pay_url)
+    if pay_url:
+        return jsonify({'paymentUrl': pay_url, 'processId': result.get('processId')})
+    return jsonify({'error': 'Grow/Make create failed', 'detail': result}), 400
 
 # ── POST /api/orders/grow/webhook ────────────────────────────────────────────
-@orders_bp.route('/grow/webhook', methods=['POST'])
-def grow_webhook():
-    """Notification serveur-à-serveur de Grow + approveTransaction."""
-    import os, requests as req
-    data = request.form.to_dict() or (request.get_json(silent=True) or {})
-    order_id    = data.get('cField1', '')
-    status      = str(data.get('status', ''))
-    trans_id    = data.get('transactionId', '')
-    trans_token = data.get('transactionToken', '')
+# @orders_bp.route('/grow/webhook', methods=['POST'])
+# def grow_webhook():
+#     """Notification serveur-à-serveur de Grow + approveTransaction."""
+#     import os, requests as req
+#     data = request.form.to_dict() or (request.get_json(silent=True) or {})
+#     order_id    = data.get('cField1', '')
+#     status      = str(data.get('status', ''))
+#     trans_id    = data.get('transactionId', '')
+#     trans_token = data.get('transactionToken', '')
 
-    paid = status in ('1', 'approved', 'success')
+#     paid = status in ('1', 'approved', 'success')
 
-    if paid and order_id:
-        try:
-            OrderModel.update_status(order_id, 'approved')
-            from app.db import get_db
-            from bson import ObjectId
-            get_db()['orders'].update_one(
-                {'_id': ObjectId(order_id)},
-                {'$set': {'paymentStatus': 'paid', 'paymentMethod': 'grow'}}
-            )
-        except Exception as e:
-            print(f'[GROW] order update failed: {e}')
+#     if paid and order_id:
+#         try:
+#             OrderModel.update_status(order_id, 'approved')
+#             from app.db import get_db
+#             from bson import ObjectId
+#             get_db()['orders'].update_one(
+#                 {'_id': ObjectId(order_id)},
+#                 {'$set': {'paymentStatus': 'paid', 'paymentMethod': 'grow'}}
+#             )
+#         except Exception as e:
+#             print(f'[GROW] order update failed: {e}')
 
-        try:
-            user_id = os.getenv('GROW_USER_ID', '')
-            sandbox = os.getenv('GROW_SANDBOX', 'true') == 'true'
-            base    = 'https://sandbox.grow.link' if sandbox else 'https://secure.grow.link'
-            req.post(f'{base}/api/light/server/1.0/approveTransaction',
-                     data={'userId': user_id, 'transactionId': trans_id,
-                           'transactionToken': trans_token}, timeout=20)
-        except Exception as e:
-            print(f'[GROW] approveTransaction failed: {e}')
+#         try:
+#             user_id = os.getenv('GROW_USER_ID', '')
+#             sandbox = os.getenv('GROW_SANDBOX', 'true') == 'true'
+#             base    = 'https://sandbox.grow.link' if sandbox else 'https://secure.grow.link'
+#             req.post(f'{base}/api/light/server/1.0/approveTransaction',
+#                      data={'userId': user_id, 'transactionId': trans_id,
+#                            'transactionToken': trans_token}, timeout=20)
+#         except Exception as e:
+#             print(f'[GROW] approveTransaction failed: {e}')
 
-    return jsonify({'ok': True})
+#     return jsonify({'ok': True})
 
 
 # ── POST /api/orders/track-guest ─────────────────────────────────────────────

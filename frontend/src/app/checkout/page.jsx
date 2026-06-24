@@ -20,29 +20,17 @@ export default function CheckoutPage() {
   const user = useAuthStore(s => s.user)
   const router = useRouter()
   const [agreed, setAgreed] = useState(false)
-  const [testing, setTesting] = useState(false)
   const [form, setForm] = useState({
     firstName: user?.name?.split(' ')[0] || '', lastName: user?.name?.split(' ').slice(1).join(' ') || '',
     email: user?.email || '', phone:'', address:'', city:'', notes:'',
   })
   const set = k => e => setForm(p => ({ ...p, [k]: e.target.value }))
-  // Simule une commande complète : remplit le form + crée une vraie commande (isTest) + redirige
-  const runTestOrder = async () => {
-    setTesting(true)
+
+  // Remplit SEULEMENT les champs (puis tu cliques toi-même sur Grow/PayPal)
+  const fillTestData = () => {
     setForm(TEST_DATA)
-    try {
-      await orderService.create({
-        customer: TEST_DATA,
-        items: items.map(i => ({ product: i._id, qty: i.qty, price: i.price, name: i.name })),
-        subtotal, vat: vatAmount, total: totalTTC,
-        paymentMethod: 'test', paymentStatus: 'paid',
-      })
-      toast.success('✅ הזמנת בדיקה נוצרה! בדוק בפאנל ניהול')
-      clearCart()
-      router.push('/order-success')
-    } catch (e) {
-      toast.error('שגיאה ביצירת הזמנת בדיקה')
-    } finally { setTesting(false) }
+    setAgreed(true)
+    toast.success('הטופס מולא — לחץ על אמצעי תשלום')
   }
 
   const totalTTC = items.reduce((s, i) => s + i.price * i.qty, 0)
@@ -62,7 +50,7 @@ export default function CheckoutPage() {
     <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="flex items-center justify-between mb-6">
         <h1 className="font-black text-2xl text-slate-900">פרטי הזמנה</h1>
-        <button onClick={runTestOrder} disabled={testing} className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[12px] font-bold bg-amber-50 border border-amber-200 text-amber-700 hover:bg-amber-100 transition-colors disabled:opacity-50"><FlaskConical className="w-3.5 h-3.5" />{testing ? 'יוצר...' : 'הזמנת בדיקה'}</button>
+        <button onClick={fillTestData} className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[12px] font-bold bg-amber-50 border border-amber-200 text-amber-700 hover:bg-amber-100 transition-colors"><FlaskConical className="w-3.5 h-3.5" />מלא טופס בדיקה</button>
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-5">

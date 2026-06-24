@@ -1,8 +1,3 @@
-// ════════════════════════════════════════════════════════════
-// Service API — parle au backend Flask.
-// Note : le backend exige un slash final (/products/) sinon il
-// renvoie une redirection 308. On met donc les slashs ici.
-// ════════════════════════════════════════════════════════════
 
 const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'
 
