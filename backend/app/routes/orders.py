@@ -451,8 +451,8 @@ def grow_create():
         return jsonify({'paymentUrl': pay_url, 'processId': result.get('processId')})
     return jsonify({'error': 'Grow/Make create failed', 'detail': result}), 400
 
-# ── POST /api/orders/grow/webhook ────────────────────────────────────────────
 
+# ── POST /api/orders/grow/webhook ────────────────────────────────────────────
 @orders_bp.route('/grow/webhook', methods=['POST'])
 def grow_webhook():
     """Notification serveur-à-serveur de Grow : marque payé + facture."""
@@ -460,12 +460,30 @@ def grow_webhook():
     data = request.form.to_dict() or (request.get_json(silent=True) or {})
     print(f"[GROW/WEBHOOK] reçu: {data}")
  
-    order_id    = data.get('cField1', '') or data.get('orderId', '')
-    status      = str(data.get('status', ''))
-    trans_id    = data.get('transactionId', '')
-    trans_token = data.get('transactionToken', '')
+    # ── Grow envoie les clés en format APLATI : data[customFields][cField1] ──
+    # On cherche l'orderId à tous les endroits possibles (robuste).
+    order_id = (
+        data.get('data[customFields][cField1]')
+        or data.get('cField1')
+        or data.get('orderId')
+        or ''
+    )
  
-    paid = status in ('1', '2', 'approved', 'success', 'שולם')
+    # Le statut : Grow envoie status='1' ET data[status]='שולם' ET data[statusCode]='2'
+    status      = str(data.get('status', '')) or str(data.get('data[status]', ''))
+    status_code = str(data.get('data[statusCode]', ''))
+ 
+    # transactionId / token aussi en format aplati
+    trans_id    = data.get('data[transactionId]')    or data.get('transactionId', '')
+    trans_token = data.get('data[transactionToken]') or data.get('transactionToken', '')
+ 
+    # Payé si status='1' (ou '2'), ou statusCode='2', ou texte 'שולם', etc.
+    paid = (
+        status in ('1', '2', 'approved', 'success', 'שולם')
+        or status_code in ('1', '2')
+    )
+ 
+    print(f"[GROW/WEBHOOK] order_id={order_id} paid={paid} status={status} statusCode={status_code}")
  
     if paid and order_id:
         try:
@@ -476,6 +494,7 @@ def grow_webhook():
                 {'_id': ObjectId(order_id)},
                 {'$set': {'paymentStatus': 'paid', 'paymentMethod': 'grow'}}
             )
+            print(f"[GROW] commande {order_id} marquée payée ✓")
         except Exception as e:
             print(f'[GROW] order update failed: {e}')
  
@@ -483,16 +502,18 @@ def grow_webhook():
         try:
             order = OrderModel.get_by_id(order_id)
             c = (order or {}).get('customer', {})
-            if c.get('email') and not order.get('invoiceSent'):
+            if order and c.get('email') and not order.get('invoiceSent'):
                 send_order_confirmation(c['email'], c.get('firstName', ''), order)
                 OrderModel.mark_invoice_sent(order_id)
-                print(f"[GROW] facture envoyée à {c.get('email')}")
+                print(f"[GROW] facture envoyée à {c.get('email')} ✓")
+            elif order and order.get('invoiceSent'):
+                print(f"[GROW] facture déjà envoyée pour {order_id} — skip")
+            else:
+                print(f"[GROW] pas d'email client pour {order_id} — pas de facture")
         except Exception as e:
             print(f'[GROW] invoice send failed: {e}')
  
-        # ── approveTransaction (acquitter la notif, sinon Grow renvoie 5 rappels) ──
-        # Via Make, on n'a pas GROW_USER_ID. Si tu le configures plus tard, ça marche.
-        # Sinon, fais un 2e scénario Make "Approve Transaction".
+        # ── approveTransaction (acquitter, sinon Grow renvoie 5 rappels) ──
         try:
             user_id = os.getenv('GROW_USER_ID', '')
             if user_id and trans_id:
@@ -501,10 +522,12 @@ def grow_webhook():
                 req.post(f'{base}/api/light/server/1.0/approveTransaction',
                          data={'userId': user_id, 'transactionId': trans_id,
                                'transactionToken': trans_token}, timeout=20)
+                print(f"[GROW] approveTransaction envoyé pour {trans_id}")
         except Exception as e:
             print(f'[GROW] approveTransaction failed: {e}')
  
     return jsonify({'ok': True})
+ 
 
 # ── POST /api/orders/track-guest ─────────────────────────────────────────────
 @orders_bp.route('/track-guest', methods=['POST'])
