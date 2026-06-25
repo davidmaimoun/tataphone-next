@@ -50,8 +50,7 @@ export default function PaymentSection({ form, totalTTC, subtotal, vatAmount, it
       if (data.paymentUrl) window.location.href = data.paymentUrl
       else { toast.error('שגיאה ביצירת דף תשלום'); setLoading(null) }
     } catch { toast.error('שגיאה בחיבור לסליקה'); setLoading(null) }
-    // NB : pas de setLoading(null) en cas de succès → l'overlay reste affiché
-    //      jusqu'à la redirection (évite un flash du bouton).
+    // succès → on garde l'overlay jusqu'à la redirection (pas de setLoading(null))
   }
 
   const handleTest = async () => {
@@ -65,17 +64,17 @@ export default function PaymentSection({ form, totalTTC, subtotal, vatAmount, it
 
   return (
     <div className="space-y-2.5">
-      {/* ── Overlay d'attente (Grow / PayPal) — rassure pendant la redirection ── */}
+      {/* ── Overlay d'attente (Grow / PayPal) — responsive, rassure pendant la redirection ── */}
       {(loading === 'grow' || loading === 'paypal') && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl shadow-2xl p-7 max-w-xs mx-4 text-center">
-            <div className="w-14 h-14 mx-auto mb-4 rounded-full flex items-center justify-center" style={{ background:'var(--primary-pale)' }}>
-              <Loader2 className="w-7 h-7 animate-spin" style={{ color:'var(--primary)' }} />
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
+          <div className="bg-white rounded-2xl shadow-2xl p-6 sm:p-7 w-full max-w-[320px] text-center">
+            <div className="w-12 h-12 sm:w-14 sm:h-14 mx-auto mb-4 rounded-full flex items-center justify-center" style={{ background:'var(--primary-pale)' }}>
+              <Loader2 className="w-6 h-6 sm:w-7 sm:h-7 animate-spin" style={{ color:'var(--primary)' }} />
             </div>
-            <h3 className="font-black text-slate-800 text-[16px] mb-1.5">מעבירים אותך לתשלום מאובטח</h3>
-            <p className="text-[13px] text-slate-500 leading-relaxed">עוד רגע… אנחנו מכינים את דף התשלום שלך. אל תסגור את החלון.</p>
+            <h3 className="font-black text-slate-800 text-[15px] sm:text-[16px] mb-1.5">מעבירים אותך לתשלום מאובטח</h3>
+            <p className="text-[12px] sm:text-[13px] text-slate-500 leading-relaxed">עוד רגע… אנחנו מכינים את דף התשלום שלך. אל תסגור את החלון.</p>
             <div className="flex items-center justify-center gap-1.5 mt-4 text-[11px] text-slate-400">
-              <ShieldCheck className="w-3.5 h-3.5 text-green-500" />תשלום מוצפן ומאובטח
+              <ShieldCheck className="w-3.5 h-3.5 text-green-500 flex-shrink-0" />תשלום מוצפן ומאובטח
             </div>
           </div>
         </div>
