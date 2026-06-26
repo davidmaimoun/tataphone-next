@@ -1,10 +1,18 @@
 'use client'
-import { Suspense } from 'react'
+import { Suspense, useEffect } from 'react'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
 import { CheckCircle2, ShoppingBag, Home } from 'lucide-react'
+import useCartStore from '@/stores/cartStore'
 
 function SuccessInner() {
+  const clearCart = useCartStore(s => s.clearCart)
+
+  // Vide le panier au retour du paiement (Grow/PayPal redirigent ici après succès)
+  useEffect(() => {
+    clearCart()
+  }, [clearCart])
+
   return (
     <div className="min-h-[70vh] flex flex-col items-center justify-center text-center px-4 gap-6">
       <motion.div initial={{ scale:0 }} animate={{ scale:1 }} transition={{ type:'spring', delay:0.1 }}>

@@ -7,7 +7,7 @@ import toast from 'react-hot-toast'
 
 const IS_TEST = process.env.NEXT_PUBLIC_TEST_MODE === 'true'
 
-export default function PaymentSection({ form, totalTTC, subtotal, vatAmount, items, agreed, validatePhone, onSuccess }) {
+export default function PaymentSection({ form, totalTTC, subtotal, vatAmount, shipping = 0, items, agreed, validatePhone, onSuccess }) {
   const [loading, setLoading] = useState(null)
 
   const validate = () => {
@@ -20,14 +20,14 @@ export default function PaymentSection({ form, totalTTC, subtotal, vatAmount, it
   const createOrder = async (paymentMethod, paymentStatus = 'paid') => orderService.create({
     customer: form,
     items: items.map(i => ({ product: i._id, qty: i.qty, price: i.price, name: i.name })),
-    subtotal, vat: vatAmount, total: totalTTC, paymentMethod, paymentStatus,
+    subtotal, vat: vatAmount, shipping, total: totalTTC, paymentMethod, paymentStatus,
   })
 
   const handlePayPal = async () => {
     if (!validate()) return
     setLoading('paypal')
     try {
-      sessionStorage.setItem('pending_order', JSON.stringify({ form, totalTTC, subtotal, vatAmount, items }))
+      sessionStorage.setItem('pending_order', JSON.stringify({ form, totalTTC, subtotal, vatAmount, shipping, items }))
       const data = await paymentService.paypalCreate(
         totalTTC,
         `${window.location.origin}/order-success?payment=paypal`,
@@ -42,15 +42,14 @@ export default function PaymentSection({ form, totalTTC, subtotal, vatAmount, it
     if (!validate()) return
     setLoading('grow')
     try {
-      // 1) crée la commande (pending) pour obtenir un orderId — OBLIGATOIRE avant Grow
+      // 1) commande pending → orderId (OBLIGATOIRE avant Grow)
       const order = await createOrder('grow', 'pending')
-      // 2) crée le lien de paiement Grow (via Make) avec l'orderId
+      // 2) lien Grow avec le total COMPLET (produits + livraison)
       const data = await paymentService.growCreate(order._id, totalTTC, form)
-      // 3) redirige vers la page de paiement Grow
+      // 3) redirection
       if (data.paymentUrl) window.location.href = data.paymentUrl
       else { toast.error('שגיאה ביצירת דף תשלום'); setLoading(null) }
     } catch { toast.error('שגיאה בחיבור לסליקה'); setLoading(null) }
-    // succès → on garde l'overlay jusqu'à la redirection (pas de setLoading(null))
   }
 
   const handleTest = async () => {
@@ -64,7 +63,6 @@ export default function PaymentSection({ form, totalTTC, subtotal, vatAmount, it
 
   return (
     <div className="space-y-2.5">
-      {/* ── Overlay d'attente (Grow / PayPal) — responsive, rassure pendant la redirection ── */}
       {(loading === 'grow' || loading === 'paypal') && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
           <div className="bg-white rounded-2xl shadow-2xl p-6 sm:p-7 w-full max-w-[320px] text-center">

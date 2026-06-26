@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import Link from 'next/link'
-import { LayoutDashboard, Package, ShoppingBag, Users, LogOut, Tag, Upload, Mail, Home, Wallet } from 'lucide-react'
+import { LayoutDashboard, Package, ShoppingBag, Users, LogOut, Tag, Upload, Mail, Home, Wallet, Settings } from 'lucide-react'
 import useAuthStore from '@/stores/authStore'
 
 const NAV = [
@@ -14,6 +14,7 @@ const NAV = [
   { href: '/admin/promotions', label: 'מבצעים',   icon: Tag },
   { href: '/admin/messages', label: 'הודעות',     icon: Mail },
   { href: '/admin/import',   label: 'ייבוא',       icon: Upload },
+  { href: '/admin/settings', label: 'הגדרות',     icon: Settings },
 ]
 
 export default function AdminLayout({ children }) {

@@ -1,19 +1,26 @@
 'use client'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { Trash2, Plus, Minus, ShoppingBag, ArrowLeft } from 'lucide-react'
 import useCartStore from '@/stores/cartStore'
 import LastMinuteSection from '@/components/ui/LastMinuteSection'
+import settingsService, { computeShipping } from '@/services/settingsService'
 
 export default function CartPage() {
   const items = useCartStore(s => s.items)
   const removeItem = useCartStore(s => s.removeItem)
   const updateQty = useCartStore(s => s.updateQty)
   const lineKey = useCartStore(s => s.lineKey)
+  const [settings, setSettings] = useState(null)
+
+  useEffect(() => { settingsService.get().then(setSettings).catch(() => {}) }, [])
 
   const total = items.reduce((sum, i) => sum + i.price * i.qty, 0)
-  const shipping = total >= 500 || total === 0 ? 0 : 30
+  const shipping = settings ? computeShipping(total, settings) : (total >= 500 || total === 0 ? 0 : 30)
   const grandTotal = total + shipping
+  const threshold = settings ? Number(settings.freeShippingThreshold) : 500
+  const freeEnabled = settings ? settings.freeShippingEnabled : true
 
   if (items.length === 0) {
     return (
@@ -34,9 +41,7 @@ export default function CartPage() {
 
       <LastMinuteSection compact />
 
-
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Items */}
         <div className="lg:col-span-2 space-y-3">
           {items.map(item => (
             <div key={lineKey(item)} className="bg-white rounded-2xl border border-slate-100 p-3 sm:p-4 flex gap-3 sm:gap-4 shadow-sm hover:shadow-md transition-shadow">
@@ -65,7 +70,6 @@ export default function CartPage() {
           ))}
         </div>
 
-        {/* Summary */}
         <div className="lg:col-span-1">
           <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm sticky top-20">
             <h2 className="font-black text-slate-900 mb-4">סיכום הזמנה</h2>
@@ -73,9 +77,9 @@ export default function CartPage() {
               <div className="flex justify-between"><span className="text-slate-500">סכום ביניים</span><span className="font-bold">₪{total.toLocaleString()}</span></div>
               <div className="flex justify-between">
                 <span className="text-slate-500">משלוח</span>
-                <span className="font-bold">{shipping === 0 ? <span className="text-green-600">חינם</span> : `₪${shipping}`}</span>
+                <span className="font-bold">{shipping === 0 ? <span className="text-green-600">חינם</span> : `₪${shipping.toLocaleString()}`}</span>
               </div>
-              {shipping > 0 && <p className="text-[12px] text-slate-400">הוסף ₪{(500 - total).toLocaleString()} למשלוח חינם</p>}
+              {freeEnabled && shipping > 0 && total < threshold && <p className="text-[12px] text-slate-400">הוסף ₪{(threshold - total).toLocaleString()} למשלוח חינם</p>}
               <div className="border-t border-slate-100 pt-3 mt-3 flex justify-between items-baseline text-[16px]">
                 <span className="font-black">סה״כ</span>
                 <span className="price-num text-[22px]">₪{grandTotal.toLocaleString()}</span>

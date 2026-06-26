@@ -1,15 +1,14 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { MapPin, User, Mail, Phone, MessageSquare, FlaskConical, Check, ShieldCheck } from 'lucide-react'
 import useCartStore from '@/stores/cartStore'
 import useAuthStore from '@/stores/authStore'
 import PaymentSection from '@/components/checkout/PaymentSection'
 import Field from '@/components/common/Field'
-import orderService from '@/services/orderService'
+import settingsService, { computeShipping } from '@/services/settingsService'
 import toast from 'react-hot-toast'
 
-const VAT_RATE = 0.18
 const TEST_DATA = { firstName:'David', lastName:'Maimoun', email:'davidmaimoun@hotmail.com', phone:'0501234567', address:'רחוב הרצל 12', city:'תל אביב', notes:'Test' }
 
 function validatePhone(phone) { const d = phone.replace(/\D/g, ''); return d.length >= 9 && d.length <= 10 }
@@ -20,22 +19,29 @@ export default function CheckoutPage() {
   const user = useAuthStore(s => s.user)
   const router = useRouter()
   const [agreed, setAgreed] = useState(false)
+  const [settings, setSettings] = useState(null)
   const [form, setForm] = useState({
     firstName: user?.name?.split(' ')[0] || '', lastName: user?.name?.split(' ').slice(1).join(' ') || '',
     email: user?.email || '', phone:'', address:'', city:'', notes:'',
   })
   const set = k => e => setForm(p => ({ ...p, [k]: e.target.value }))
 
-  // Remplit SEULEMENT les champs (puis tu cliques toi-même sur Grow/PayPal)
+  // Charge les settings (TVA, livraison) depuis l'API
+  useEffect(() => { settingsService.get().then(setSettings).catch(() => {}) }, [])
+
   const fillTestData = () => {
     setForm(TEST_DATA)
     setAgreed(true)
     toast.success('הטופס מולא — לחץ על אמצעי תשלום')
   }
 
-  const totalTTC = items.reduce((s, i) => s + i.price * i.qty, 0)
-  const subtotal = Math.round(totalTTC / (1 + VAT_RATE))
-  const vatAmount = totalTTC - subtotal
+  // ── Calculs (les prix produits sont TTC) ──
+  const productsTotal = items.reduce((s, i) => s + i.price * i.qty, 0)
+  const vatRate = settings ? Number(settings.vatRate) / 100 : 0.18
+  const shipping = settings ? computeShipping(productsTotal, settings) : 0
+  const totalTTC = productsTotal + shipping                       // ← MONTANT PAYÉ (produits + livraison)
+  const subtotal = Math.round(productsTotal / (1 + vatRate))      // HT (indicatif)
+  const vatAmount = productsTotal - subtotal                      // TVA comprise (indicatif)
 
   const handlePaymentSuccess = async () => { clearCart(); router.push('/order-success') }
 
@@ -87,11 +93,15 @@ export default function CheckoutPage() {
               {items.map(i => <div key={i._id} className="flex justify-between text-[12px]"><span className="text-slate-500 flex-1 line-clamp-1">{i.name} ×{i.qty}</span><span className="font-semibold mr-2">₪{(i.price*i.qty).toLocaleString()}</span></div>)}
             </div>
             <div className="border-t border-slate-100 pt-3 space-y-1.5 mb-4">
-              <div className="flex justify-between text-[12px] text-slate-500"><span>לפני מע"מ</span><span>₪{subtotal.toLocaleString()}</span></div>
-              <div className="flex justify-between text-[12px] text-slate-500"><span>מע"מ 18%</span><span>₪{vatAmount.toLocaleString()}</span></div>
+              <div className="flex justify-between text-[12px] text-slate-500"><span>סכום ביניים</span><span>₪{productsTotal.toLocaleString()}</span></div>
+              <div className="flex justify-between text-[12px] text-slate-500">
+                <span>משלוח</span>
+                <span>{shipping === 0 ? <span className="text-green-600 font-semibold">חינם</span> : `₪${shipping.toLocaleString()}`}</span>
+              </div>
+              <div className="flex justify-between text-[12px] text-slate-400"><span>מתוכם מע״מ</span><span>₪{vatAmount.toLocaleString()}</span></div>
               <div className="flex justify-between items-center pt-2 border-t border-slate-100"><span className="font-black text-[15px] text-slate-800">סה"כ</span><span className="price-num text-primary-600" style={{fontSize:22}}>₪{totalTTC.toLocaleString()}</span></div>
             </div>
-            <PaymentSection form={form} totalTTC={totalTTC} vatAmount={vatAmount} subtotal={subtotal} items={items} agreed={agreed} validatePhone={validatePhone} onSuccess={handlePaymentSuccess} />
+            <PaymentSection form={form} totalTTC={totalTTC} vatAmount={vatAmount} subtotal={subtotal} shipping={shipping} items={items} agreed={agreed} validatePhone={validatePhone} onSuccess={handlePaymentSuccess} />
           </div>
           <div className="bg-slate-50 rounded-2xl border border-slate-200 p-4">
             <label className="flex gap-3 cursor-pointer">

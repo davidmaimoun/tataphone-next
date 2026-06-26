@@ -58,7 +58,9 @@ def create_app():
     from .routes.meta      import meta_bp
     from .routes.reviews   import reviews_bp
     from app.routes.integrations import integrations_bp
+    from app.routes.settings import settings_bp
 
+    app.register_blueprint(settings_bp, url_prefix='/api/settings')
     app.register_blueprint(wishlist_bp,    url_prefix='/api/wishlist')
     app.register_blueprint(meta_bp,        url_prefix='/api/meta')
     app.register_blueprint(reviews_bp,    url_prefix='/api/reviews')
