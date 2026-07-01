@@ -7,6 +7,10 @@ import { productAdmin } from '@/services/productService'
 import productService from '@/services/productService'
 import toast from 'react-hot-toast'
 
+// Couleurs suggérées pour le VariantsEditor (clic rapide au lieu de tout taper)
+const SUGGESTED_COLORS = ['שחור','לבן','כסף','אפור','זהב','ורוד','אדום','כחול','ירוק','סגול','כתום','טיטניום','שמפניה','זהב ורוד']
+const SUGGESTED_STORAGE = ['64GB','128GB','256GB','512GB','1TB']
+
 // ── Meta manager (add/remove categories, brands, tags) ──
 function MetaManager({ collection, label, icon: Icon, color }) {
   const [items, setItems] = useState([])
@@ -99,12 +103,13 @@ function MetaPanel() {
 
 
 // ════════════════════════════════════════════════════════════════
-//  Éditeur de variantes (options + combinaisons prix/stock/SKU)
+//  Éditeur de variantes — SEUL système de gestion couleur/taille/stockage
 // ════════════════════════════════════════════════════════════════
 function VariantsEditor({ options, setOptions, variants, setVariants }) {
-  const [open, setOpen] = useState(false)
+  // Ouvert par défaut si le produit a déjà des variantes/options
+  const [open, setOpen] = useState(() => (variants?.length || 0) > 0 || (options?.length || 0) > 0)
 
-  const addOption = () => setOptions(p => [...p, { name: '', values: [] }])
+  const addOption = (presetName = '') => setOptions(p => [...p, { name: presetName, values: [] }])
   const updateOptionName = (i, name) => setOptions(p => p.map((o, idx) => idx === i ? { ...o, name } : o))
   const removeOption = (i) => setOptions(p => p.filter((_, idx) => idx !== i))
   const addValue = (i, val) => {
@@ -113,7 +118,14 @@ function VariantsEditor({ options, setOptions, variants, setVariants }) {
   }
   const removeValue = (i, val) => setOptions(p => p.map((o, idx) => idx === i ? { ...o, values: o.values.filter(x => x !== val) } : o))
 
-  // Génère toutes les combinaisons à partir des options (produit cartésien)
+  // Suggestions selon le nom de l'option
+  const suggestionsFor = (optName) => {
+    const n = (optName || '').trim()
+    if (n === 'צבע' || n.includes('צבע')) return SUGGESTED_COLORS
+    if (n === 'אחסון' || n.includes('אחסון') || n.toLowerCase().includes('gb')) return SUGGESTED_STORAGE
+    return []
+  }
+
   const generateVariants = () => {
     const valid = options.filter(o => o.name?.trim() && o.values?.length)
     if (!valid.length) { setVariants([]); return }
@@ -123,7 +135,6 @@ function VariantsEditor({ options, setOptions, variants, setVariants }) {
       combos.forEach(combo => opt.values.forEach(val => next.push({ ...combo, [opt.name]: val })))
       combos = next
     })
-    // Conserve les valeurs déjà saisies si la combinaison existait
     setVariants(combos.map(attrs => {
       const existing = variants.find(v => valid.every(o => v.attributes?.[o.name] === attrs[o.name]))
       return existing || { sku: '', attributes: attrs, price: '', originalPrice: '', stock: 0, supplierPrice: '', image: '' }
@@ -135,32 +146,50 @@ function VariantsEditor({ options, setOptions, variants, setVariants }) {
   return (
     <div className="border-2 border-dashed border-primary-200 rounded-2xl p-4 bg-primary-50/30">
       <button type="button" onClick={() => setOpen(o => !o)} className="flex items-center justify-between w-full">
-        <span className="text-[14px] font-black text-primary-700 flex items-center gap-2"><Plus className="w-4 h-4" />וריאציות (צבע, אחסון — עם מחיר/מלאי שונה)</span>
+        <span className="text-[14px] font-black text-primary-700 flex items-center gap-2"><Plus className="w-4 h-4" />וריאציות (צבע, אחסון — מחיר/מלאי לכל שילוב)</span>
         <span className="text-[12px] text-slate-400">{variants.length ? `${variants.length} וריאציות` : 'אופציונלי'}</span>
       </button>
 
       {open && (
         <div className="mt-4 space-y-4">
+          {/* Boutons rapides pour ajouter une option courante */}
+          <div className="flex flex-wrap gap-2">
+            <button type="button" onClick={() => addOption('צבע')} className="text-[12px] font-semibold px-3 py-1.5 rounded-lg bg-primary-100 text-primary-700 hover:bg-primary-200 transition-colors">+ צבע</button>
+            <button type="button" onClick={() => addOption('אחסון')} className="text-[12px] font-semibold px-3 py-1.5 rounded-lg bg-primary-100 text-primary-700 hover:bg-primary-200 transition-colors">+ אחסון</button>
+            <button type="button" onClick={() => addOption('')} className="text-[12px] font-semibold px-3 py-1.5 rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors">+ אפשרות אחרת</button>
+          </div>
+
           {/* Options */}
           <div className="space-y-3">
-            {options.map((opt, i) => (
-              <div key={i} className="bg-white rounded-xl p-3 border border-slate-100">
-                <div className="flex gap-2 items-center mb-2">
-                  <input value={opt.name} onChange={e => updateOptionName(i, e.target.value)} dir="rtl" className="input text-sm font-bold flex-1" placeholder="שם האפשרות (צבע, אחסון...)" />
-                  <button type="button" onClick={() => removeOption(i)} className="w-8 h-8 rounded-lg bg-red-50 text-red-400 hover:bg-red-100 flex items-center justify-center"><X className="w-4 h-4" /></button>
+            {options.map((opt, i) => {
+              const suggestions = suggestionsFor(opt.name)
+              return (
+                <div key={i} className="bg-white rounded-xl p-3 border border-slate-100">
+                  <div className="flex gap-2 items-center mb-2">
+                    <input value={opt.name} onChange={e => updateOptionName(i, e.target.value)} dir="rtl" className="input text-sm font-bold flex-1" placeholder="שם האפשרות (צבע, אחסון...)" />
+                    <button type="button" onClick={() => removeOption(i)} className="w-8 h-8 rounded-lg bg-red-50 text-red-400 hover:bg-red-100 flex items-center justify-center"><X className="w-4 h-4" /></button>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5 items-center mb-2">
+                    {opt.values.map(val => (
+                      <span key={val} className="inline-flex items-center gap-1 text-[12px] font-semibold bg-primary-100 text-primary-700 px-2.5 py-1 rounded-full">
+                        {val}<button type="button" onClick={() => removeValue(i, val)} className="hover:text-red-500"><X className="w-3 h-3" /></button>
+                      </span>
+                    ))}
+                    <input dir="rtl" className="input text-xs px-2 py-1 h-auto w-28" placeholder="ערך + Enter"
+                      onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addValue(i, e.target.value); e.target.value = '' } }} />
+                  </div>
+                  {/* Suggestions rapides (couleurs / stockage) */}
+                  {suggestions.length > 0 && (
+                    <div className="flex flex-wrap gap-1 pt-2 border-t border-slate-50">
+                      <span className="text-[10px] text-slate-400 self-center ml-1">הוסף מהיר:</span>
+                      {suggestions.filter(s => !opt.values.includes(s)).map(s => (
+                        <button key={s} type="button" onClick={() => addValue(i, s)} className="text-[11px] px-2 py-0.5 rounded-md bg-slate-50 text-slate-500 hover:bg-primary-100 hover:text-primary-700 transition-colors">+ {s}</button>
+                      ))}
+                    </div>
+                  )}
                 </div>
-                <div className="flex flex-wrap gap-1.5 items-center">
-                  {opt.values.map(val => (
-                    <span key={val} className="inline-flex items-center gap-1 text-[12px] font-semibold bg-primary-100 text-primary-700 px-2.5 py-1 rounded-full">
-                      {val}<button type="button" onClick={() => removeValue(i, val)} className="hover:text-red-500"><X className="w-3 h-3" /></button>
-                    </span>
-                  ))}
-                  <input dir="rtl" className="input text-xs px-2 py-1 h-auto w-28" placeholder="ערך + Enter"
-                    onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addValue(i, e.target.value); e.target.value = '' } }} />
-                </div>
-              </div>
-            ))}
-            <button type="button" onClick={addOption} className="flex items-center gap-1.5 text-xs font-semibold text-primary-600 bg-primary-50 hover:bg-primary-100 px-3 py-1.5 rounded-lg transition-colors"><Plus className="w-3.5 h-3.5" />הוסף אפשרות</button>
+              )
+            })}
           </div>
 
           {/* Générer les combinaisons */}
@@ -180,7 +209,7 @@ function VariantsEditor({ options, setOptions, variants, setVariants }) {
                 <tbody className="divide-y divide-slate-50">
                   {variants.map((v, i) => (
                     <tr key={i}>
-                      <td className="py-1.5 px-2 font-semibold text-slate-700 whitespace-nowrap">{Object.values(v.attributes || {}).join(' · ')}</td>
+                      <td className="py-1.5 px-2 font-semibold text-slate-700 whitespace-nowrap">{Object.values(v.attributes || {}).join(' · ') || '—'}</td>
                       <td className="py-1.5 px-2"><input value={v.sku || ''} onChange={e => updateVariant(i,'sku',e.target.value)} dir="ltr" className="input text-xs w-24" placeholder="SKU" /></td>
                       <td className="py-1.5 px-2"><input type="number" value={v.price ?? ''} onChange={e => updateVariant(i,'price',e.target.value)} className="input text-xs w-20" placeholder="₪" /></td>
                       <td className="py-1.5 px-2"><input type="number" value={v.originalPrice ?? ''} onChange={e => updateVariant(i,'originalPrice',e.target.value)} className="input text-xs w-20" placeholder="₪" /></td>
@@ -190,7 +219,7 @@ function VariantsEditor({ options, setOptions, variants, setVariants }) {
                   ))}
                 </tbody>
               </table>
-              <p className="text-[11px] text-slate-400 mt-2">💡 כשיש וריאציות, המחיר/מלאי שלהן גוברים על מחיר המוצר הראשי. בכרטיס יוצג "החל מ-" המחיר הנמוך.</p>
+              <p className="text-[11px] text-slate-400 mt-2">💡 כל וריאציה עם מחיר/מלאי משלה. בכרטיס יוצג "החל מ-" המחיר הנמוך.</p>
             </div>
           )}
         </div>
@@ -259,17 +288,13 @@ export default function AdminProducts() {
   )
 }
 
-const DEFAULT_SIZES = ['XS','S','M','L','XL','XXL','64GB','128GB','256GB','512GB']
-const DEFAULT_COLORS = ['שחור','לבן','כסף','אפור','זהב','ורוד','אדום','כחול','ירוק','סגול','כתום','טיטניום','שמפניה']
-
 function ProductModal({ product, onClose, onSave }) {
   const [metaCategories, setMetaCategories] = useState([])
   const [brands, setBrands] = useState([])
-  const [colors, setColors] = useState(DEFAULT_COLORS)
   const [metaTags, setMetaTags] = useState([])
   const [saving, setSaving] = useState(false)
-  const [newBrand, setNewBrand] = useState(''); const [newColor, setNewColor] = useState(''); const [newCat, setNewCat] = useState(''); const [newTag, setNewTag] = useState('')
-  const [showNewBrand, setShowNewBrand] = useState(false); const [showNewColor, setShowNewColor] = useState(false); const [showNewCat, setShowNewCat] = useState(false); const [showNewTag, setShowNewTag] = useState(false)
+  const [newBrand, setNewBrand] = useState(''); const [newCat, setNewCat] = useState(''); const [newTag, setNewTag] = useState('')
+  const [showNewBrand, setShowNewBrand] = useState(false); const [showNewCat, setShowNewCat] = useState(false); const [showNewTag, setShowNewTag] = useState(false)
   const [note, setNote] = useState(product?.note || '')
   const DEFAULT_SECTIONS = [
     { title:'תיאור', body:'' }, { title:'אחריות', body:'' },
@@ -288,13 +313,11 @@ function ProductModal({ product, onClose, onSave }) {
   })
   const [form, setForm] = useState(product ? {
     ...product,
-    selectedColors: Array.isArray(product.colors) ? product.colors : [],
-    selectedSizes: Array.isArray(product.sizes) ? product.sizes : [],
     tags: Array.isArray(product.tags) ? product.tags : [],
-    isKosher: product.isKosher !== false,
-  } : { name:'', brand:'', sku:'', category:'', description:'', price:'', originalPrice:'', supplierPrice:'', stock:0, selectedColors:[], selectedSizes:[], tags:[], isKosher:true })
+    isKosher: product.isKosher === true,
+  } : { name:'', brand:'', sku:'', category:'', description:'', price:'', originalPrice:'', supplierPrice:'', stock:0, tags:[], isKosher:false })
   const [photos, setPhotos] = useState((product?.images || []).map((url, i) => ({ url, isMain: i === 0, file: null })))
-  // ── Variantes ──
+  // ── Variantes — SEUL système ──
   const [options, setOptions] = useState(() => Array.isArray(product?.options) ? product.options : [])
   const [variants, setVariants] = useState(() => Array.isArray(product?.variants) ? product.variants : [])
   const set = k => e => setForm(p => ({ ...p, [k]: e.target.value }))
@@ -303,7 +326,6 @@ function ProductModal({ product, onClose, onSave }) {
     metaService.get('categories').then(cats => setMetaCategories(cats.length ? cats : ['סמארטפונים','מצלמות','אוזניות','שעונים']))
     metaService.get('brands').then(setBrands)
     metaService.get('tags').then(setMetaTags)
-    metaService.getColors().then(dbColors => setColors([...new Set([...DEFAULT_COLORS, ...dbColors, ...(product?.colors || [])])]))
   }, [])
 
   const onDrop = useCallback((accepted) => {
@@ -319,10 +341,7 @@ function ProductModal({ product, onClose, onSave }) {
   const addBrand = async () => { const v = await addAndSave('brands', newBrand, setBrands); if (v) { setForm(p => ({ ...p, brand: v })); setNewBrand(''); setShowNewBrand(false) } }
   const addCat = async () => { const v = await addAndSave('categories', newCat, setMetaCategories); if (v) { setForm(p => ({ ...p, category: v })); setNewCat(''); setShowNewCat(false) } }
   const addTag = async () => { const v = await addAndSave('tags', newTag.toLowerCase(), setMetaTags); if (v) { setForm(p => ({ ...p, tags: [...new Set([...(p.tags || []), v])] })); setNewTag(''); setShowNewTag(false) } }
-  const addColor = async () => { const v = newColor.trim(); if (!v) return; setColors(p => [...new Set([...p, v])]); setForm(p => ({ ...p, selectedColors: [...new Set([...(p.selectedColors || []), v])] })); setNewColor(''); setShowNewColor(false) }
   const toggleTag = t => setForm(p => ({ ...p, tags: p.tags?.includes(t) ? p.tags.filter(x => x !== t) : [...(p.tags || []), t] }))
-  const toggleColor = c => setForm(p => ({ ...p, selectedColors: p.selectedColors?.includes(c) ? p.selectedColors.filter(x => x !== c) : [...(p.selectedColors || []), c] }))
-  const toggleSize = s => setForm(p => ({ ...p, selectedSizes: p.selectedSizes?.includes(s) ? p.selectedSizes.filter(x => x !== s) : [...(p.selectedSizes || []), s] }))
 
   const submit = async (e) => {
     e.preventDefault(); setSaving(true)
@@ -330,8 +349,6 @@ function ProductModal({ product, onClose, onSave }) {
       const fd = new FormData()
       const TEXT = ['name','brand','sku','category','description','price','originalPrice','supplierPrice','stock']
       TEXT.forEach(k => { const v = form[k]; if (v !== undefined && v !== null) fd.append(k, v) })
-      fd.append('colors', JSON.stringify(form.selectedColors || []))
-      fd.append('sizes', JSON.stringify(form.selectedSizes || []))
       fd.append('tags', JSON.stringify(form.tags || []))
       const specsObj = {}; specs.filter(s => s.k.trim()).forEach(s => { specsObj[s.k.trim()] = s.v.trim() })
       fd.append('specs', JSON.stringify(specsObj))
@@ -340,7 +357,6 @@ function ProductModal({ product, onClose, onSave }) {
       fd.append('options', JSON.stringify(options.filter(o => o.name?.trim() && o.values?.length)))
       fd.append('variants', JSON.stringify(variants.filter(v => v.sku?.trim() || Object.keys(v.attributes||{}).length)))
       fd.append('isKosher', form.isKosher ? 'true' : 'false')
-      // isAccessory auto-derived: a product is "accessory" if it has tags AND is cheap — backend may infer. We send false by default unless backend handles tags.
       const sorted = [...photos].sort((a, b) => b.isMain - a.isMain)
       fd.append('existingImages', JSON.stringify(sorted.filter(p => !p.file).map(p => p.url)))
       sorted.filter(p => p.file).forEach(p => fd.append('photos', p.file))
@@ -409,7 +425,7 @@ function ProductModal({ product, onClose, onSave }) {
                 <div className="flex gap-2"><input value={newCat} onChange={e => setNewCat(e.target.value)} dir="rtl" className="input text-sm flex-1" placeholder="קטגוריה חדשה..." autoFocus /><button type="button" onClick={addCat} className="btn btn-primary px-3 py-2"><Check className="w-4 h-4" /></button><button type="button" onClick={() => setShowNewCat(false)} className="btn btn-ghost px-3 py-2"><X className="w-4 h-4" /></button></div>
               )}
             </div>
-            <div><label className="block text-xs font-bold text-slate-500 mb-1.5">מלאי</label><input type="number" min="0" value={form.stock || 0} onChange={set('stock')} className="input text-sm" /></div>
+            <div><label className="block text-xs font-bold text-slate-500 mb-1.5">מלאי <span className="font-normal text-slate-400">(אם אין וריאציות)</span></label><input type="number" min="0" value={form.stock || 0} onChange={set('stock')} className="input text-sm" /></div>
           </div>
 
           {/* Prices */}
@@ -418,7 +434,7 @@ function ProductModal({ product, onClose, onSave }) {
             <div><label className="block text-xs font-bold text-slate-500 mb-1.5">מחיר מקורי</label><input type="number" min="0" value={form.originalPrice || ''} onChange={set('originalPrice')} className="input text-sm" placeholder="אופציונלי" /></div>
           </div>
 
-          {/* Prix fournisseur — usage interne */}
+          {/* Prix fournisseur */}
           <div className="bg-amber-50 border border-amber-200 rounded-xl p-3">
             <label className="block text-xs font-bold text-amber-700 mb-1.5">🔒 מחיר ספק <span className="font-normal text-amber-600">(פנימי — לא מוצג ללקוח)</span></label>
             <input type="number" min="0" value={form.supplierPrice || ''} onChange={set('supplierPrice')} className="input text-sm max-w-[200px]" placeholder="עלות מהספק" />
@@ -427,7 +443,7 @@ function ProductModal({ product, onClose, onSave }) {
           {/* Description */}
           <div><label className="block text-xs font-bold text-slate-500 mb-1.5">תיאור</label><textarea value={form.description || ''} onChange={set('description')} rows={3} dir="rtl" className="input resize-none text-sm" placeholder="תיאור המוצר..." /></div>
 
-          {/* Kosher only (isAccessory toggle removed per request) */}
+          {/* Kosher */}
           <div>
             <label className="block text-xs font-bold text-slate-500 mb-2">כשרות</label>
             <div className="flex gap-2 max-w-xs">
@@ -452,23 +468,7 @@ function ProductModal({ product, onClose, onSave }) {
             </div>
           </div>
 
-          {/* Colors */}
-          <div>
-            <label className="block text-xs font-bold text-slate-500 mb-2">צבעים</label>
-            <div className="flex flex-wrap gap-2">
-              {colors.map(c => <button type="button" key={c} onClick={() => toggleColor(c)} className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all ${form.selectedColors?.includes(c) ? 'bg-primary-600 text-white border-primary-600' : 'bg-white text-slate-600 border-slate-200 hover:border-primary-300'}`}>{c}</button>)}
-              {!showNewColor ? <button type="button" onClick={() => setShowNewColor(true)} className="px-3 py-1.5 rounded-xl text-xs font-semibold border border-dashed border-slate-300 text-slate-400 hover:border-primary-400 hover:text-primary-500 transition-all">+ הוסף</button>
-               : <div className="flex gap-1.5"><input value={newColor} onChange={e => setNewColor(e.target.value)} dir="rtl" className="input text-xs px-2 py-1 h-auto w-24" placeholder="צבע..." autoFocus /><button type="button" onClick={addColor} className="w-7 h-7 rounded-lg bg-primary-600 flex items-center justify-center"><Check className="w-3.5 h-3.5 text-white" /></button><button type="button" onClick={() => setShowNewColor(false)} className="w-7 h-7 rounded-lg bg-slate-100 flex items-center justify-center"><X className="w-3.5 h-3.5 text-slate-500" /></button></div>}
-            </div>
-          </div>
-
-          {/* Sizes */}
-          <div>
-            <label className="block text-xs font-bold text-slate-500 mb-2">מידות</label>
-            <div className="flex flex-wrap gap-2">{DEFAULT_SIZES.map(s => <button type="button" key={s} onClick={() => toggleSize(s)} className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all ${form.selectedSizes?.includes(s) ? 'bg-primary-600 text-white border-primary-600' : 'bg-white text-slate-600 border-slate-200 hover:border-primary-300'}`}>{s}</button>)}</div>
-          </div>
-
-          {/* Variantes */}
+          {/* Variantes — SEUL système couleur/taille/stockage */}
           <VariantsEditor options={options} setOptions={setOptions} variants={variants} setVariants={setVariants} />
 
           {/* Note */}
@@ -489,7 +489,7 @@ function ProductModal({ product, onClose, onSave }) {
             <button type="button" onClick={() => setSpecs(prev => [...prev, { k:'', v:'' }])} className="flex items-center gap-1.5 text-xs font-semibold text-primary-600 hover:text-primary-700 bg-primary-50 hover:bg-primary-100 px-3 py-1.5 rounded-lg transition-colors"><Plus className="w-3.5 h-3.5" />הוסף שורה</button>
           </div>
 
-          {/* Sections (לשוניות מתחת למוצר) */}
+          {/* Sections */}
           <div>
             <label className="block text-xs font-bold text-slate-500 mb-2">מקטעים — לשוניות מתחת למוצר <span className="font-normal text-slate-400">(תיאור, אחריות, משלוח...)</span></label>
             <div className="space-y-3 mb-2">
