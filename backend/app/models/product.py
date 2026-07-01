@@ -251,7 +251,7 @@ def create_product(data: dict) -> dict:
         'reviewCount':   int(data.get('reviewCount', 0) or 0),
         'isNew':         data.get('isNew', True),
         'isTopRated':    data.get('isTopRated', False),
-        'isKosher':      _to_bool(data.get('isKosher', data.get('is_kosher', data.get('kosher','yes'))), True),
+        'isKosher':      _to_bool(data.get('isKosher', data.get('is_kosher', data.get('kosher', False))), False),
         'isAccessory':   _to_bool(data.get('isAccessory', data.get('is_accessory', False)), False),
         'tags':          data.get('tags', []),
         'colors':        _parse_list(data.get('selectedColors', '[]')),
