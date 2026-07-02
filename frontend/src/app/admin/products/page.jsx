@@ -361,7 +361,7 @@ export default function AdminProducts() {
       {/* Barre : recherche + pagination */}
       <div className="flex items-center justify-between gap-4 mb-4 flex-wrap">
         <div className="relative max-w-md flex-1 min-w-[200px]">
-          <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+          {/* <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" /> */}
           <input value={search} onChange={e => { setSearch(e.target.value); setPage(1) }} placeholder="חפש מוצר..." className="input pr-10 w-full" />
         </div>
         <div className="flex items-center gap-2">
