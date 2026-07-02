@@ -340,6 +340,63 @@ def admin_list():
     col = get_db()['products']
     products = [ProductModel.serialize(p, admin=True) for p in col.find().sort('createdAt', -1)]
     return jsonify({'products': products, 'total': len(products)})
+
+
+@products_bp.route('/export', methods=['GET'])
+@jwt_required()
+def export_products():
+    if not _is_admin():
+        return jsonify({'error': 'Admin only'}), 403
+ 
+    from flask import send_file
+    from app.db import get_db
+    import io, json, csv, datetime
+ 
+    fmt = request.args.get('format', 'json').lower()
+    products = list(get_db()['products'].find())
+    stamp = datetime.datetime.utcnow().strftime('%Y-%m-%d_%H-%M')
+ 
+    # Nettoyer pour l'export (retirer _id ObjectId, dates → str)
+    clean = []
+    for p in products:
+        p.pop('_id', None)
+        for k in ('createdAt', 'updatedAt'):
+            if k in p and hasattr(p[k], 'isoformat'):
+                p[k] = p[k].isoformat()
+        clean.append(p)
+ 
+    if fmt == 'csv':
+        # CSV : colonnes principales (variants/options aplaties en JSON string)
+        output = io.StringIO()
+        cols = ['sku','name','nameEn','brand','category','subCategory','price',
+                'originalPrice','supplierPrice','stock','isKosher','isAccessory',
+                'description','barcode','supplier','options','variants','tags']
+        writer = csv.DictWriter(output, fieldnames=cols, extrasaction='ignore')
+        writer.writeheader()
+        for p in clean:
+            row = dict(p)
+            # Sérialiser les champs complexes en JSON string
+            for cx in ('options','variants','tags','images','specs','details'):
+                if cx in row and not isinstance(row[cx], str):
+                    row[cx] = json.dumps(row[cx], ensure_ascii=False)
+            writer.writerow(row)
+        # BOM UTF-8 pour Excel (affiche bien l'hébreu)
+        data = '\ufeff' + output.getvalue()
+        return send_file(
+            io.BytesIO(data.encode('utf-8')),
+            mimetype='text/csv',
+            as_attachment=True,
+            download_name=f'tataphone_products_{stamp}.csv'
+        )
+    else:
+        # JSON (réimportable)
+        data = json.dumps(clean, ensure_ascii=False, indent=2)
+        return send_file(
+            io.BytesIO(data.encode('utf-8')),
+            mimetype='application/json',
+            as_attachment=True,
+            download_name=f'tataphone_products_{stamp}.json'
+        )
  
 
 

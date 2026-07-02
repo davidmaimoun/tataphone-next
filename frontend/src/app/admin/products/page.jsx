@@ -233,6 +233,13 @@ export default function AdminProducts() {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [modal, setModal] = useState(null)
+  const [exporting, setExporting] = useState(false)
+
+  // Pagination + tri
+  const [perPage, setPerPage] = useState(50)        // 50 | 100 | 200 | 'all'
+  const [page, setPage] = useState(1)
+  const [sortBy, setSortBy] = useState('createdAt')  // colonne triée
+  const [sortDir, setSortDir] = useState('desc')     // 'asc' | 'desc'
 
   const load = async () => { setLoading(true); try { const { default: api } = await import('@/services/api'); const r = await api.get('/products/admin/list'); setProducts(r.data.products || []) } catch { productService.getAll({ limit: 9999 }).then(d => setProducts(d.products || [])) } finally { setLoading(false) } }
   useEffect(() => { load() }, [])
@@ -241,32 +248,113 @@ export default function AdminProducts() {
     if (!confirm(`למחוק את "${name}"?`)) return
     try { await productAdmin.remove(id); toast.success('נמחק'); load() } catch { toast.error('שגיאה במחיקה') }
   }
+
+  // ── Export JSON / CSV ──
+  const exportProducts = async (format) => {
+    setExporting(true)
+    try {
+      const { default: api } = await import('@/services/api')
+      const res = await api.get(`/products/export?format=${format}`, { responseType: 'blob' })
+      const url = URL.createObjectURL(new Blob([res.data]))
+      const a = document.createElement('a')
+      a.href = url
+      const stamp = new Date().toISOString().slice(0,16).replace(/[:T]/g,'-')
+      a.download = `tataphone_products_${stamp}.${format}`
+      a.click()
+      URL.revokeObjectURL(url)
+      toast.success(`ייצוא ${format.toUpperCase()} הושלם! 💾`)
+    } catch { toast.error('שגיאה בייצוא') } finally { setExporting(false) }
+  }
+
+  // ── Tri : clic sur une colonne ──
+  const toggleSort = (col) => {
+    if (sortBy === col) { setSortDir(d => d === 'asc' ? 'desc' : 'asc') }
+    else { setSortBy(col); setSortDir('asc') }
+    setPage(1)
+  }
+
+  // Filtre recherche
   const filtered = products.filter(p => { const q = search.toLowerCase(); return !q || p.name?.toLowerCase().includes(q) || p.brand?.toLowerCase().includes(q) })
+
+  // Tri
+  const sorted = [...filtered].sort((a, b) => {
+    let av = a[sortBy], bv = b[sortBy]
+    // Normaliser
+    if (sortBy === 'price' || sortBy === 'stock') { av = Number(av) || 0; bv = Number(bv) || 0 }
+    else { av = (av ?? '').toString().toLowerCase(); bv = (bv ?? '').toString().toLowerCase() }
+    if (av < bv) return sortDir === 'asc' ? -1 : 1
+    if (av > bv) return sortDir === 'asc' ? 1 : -1
+    return 0
+  })
+
+  // Pagination
+  const isAll = perPage === 'all'
+  const totalPages = isAll ? 1 : Math.max(1, Math.ceil(sorted.length / perPage))
+  const curPage = Math.min(page, totalPages)
+  const paged = isAll ? sorted : sorted.slice((curPage - 1) * perPage, curPage * perPage)
+
+  // En-tête de colonne triable
+  const SortHeader = ({ col, label, className = '' }) => (
+    <th className={`px-4 py-3 cursor-pointer select-none hover:text-primary-600 transition-colors ${className}`} onClick={() => toggleSort(col)}>
+      <span className="inline-flex items-center gap-1">
+        {label}
+        {sortBy === col && <span className="text-primary-500">{sortDir === 'asc' ? '▲' : '▼'}</span>}
+      </span>
+    </th>
+  )
 
   return (
     <div className="p-6 lg:p-8">
       <div className="flex items-center justify-between mb-6 gap-4 flex-wrap">
         <h1 className="text-2xl font-black text-slate-900">מוצרים ({products.length})</h1>
-        <button onClick={() => setModal('new')} className="btn btn-primary px-4 py-2.5"><Plus className="w-4 h-4" />מוצר חדש</button>
+        <div className="flex gap-2 flex-wrap">
+          {/* Export / Backup */}
+          <button onClick={() => exportProducts('json')} disabled={exporting} className="btn btn-secondary px-3 py-2.5 text-[13px] gap-1.5 disabled:opacity-50" title="גיבוי JSON (ניתן לייבא מחדש)">
+            💾 JSON
+          </button>
+          <button onClick={() => exportProducts('csv')} disabled={exporting} className="btn btn-secondary px-3 py-2.5 text-[13px] gap-1.5 disabled:opacity-50" title="ייצוא CSV (Excel)">
+            📊 CSV
+          </button>
+          <button onClick={() => setModal('new')} className="btn btn-primary px-4 py-2.5"><Plus className="w-4 h-4" />מוצר חדש</button>
+        </div>
       </div>
 
       <LastMinuteConfig />
       <MetaPanel />
 
-      <div className="relative mb-4 max-w-md">
-        <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="חפש מוצר..." className="input pr-10" />
+      {/* Barre : recherche + pagination */}
+      <div className="flex items-center justify-between gap-4 mb-4 flex-wrap">
+        <div className="relative max-w-md flex-1 min-w-[200px]">
+          <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+          <input value={search} onChange={e => { setSearch(e.target.value); setPage(1) }} placeholder="חפש מוצר..." className="input pr-10 w-full" />
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-[12px] text-slate-400">הצג:</span>
+          {[50, 100, 200, 'all'].map(n => (
+            <button key={n} onClick={() => { setPerPage(n); setPage(1) }}
+              className={`px-3 py-1.5 rounded-lg text-[12px] font-bold transition-all ${perPage === n ? 'bg-primary-600 text-white' : 'bg-white border border-slate-200 text-slate-500 hover:border-primary-300'}`}>
+              {n === 'all' ? 'הכל' : n}
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden overflow-x-auto">
         <table className="w-full text-right min-w-[600px]">
           <thead className="bg-slate-50 text-[12px] font-bold text-slate-500 uppercase">
-            <tr><th className="px-4 py-3">מוצר</th><th className="px-4 py-3 hidden sm:table-cell">מותג</th><th className="px-4 py-3">קטגוריה</th><th className="px-4 py-3">מחיר</th><th className="px-4 py-3 hidden md:table-cell">מלאי</th><th className="px-4 py-3">פעולות</th></tr>
+            <tr>
+              <SortHeader col="name" label="מוצר" />
+              <SortHeader col="brand" label="מותג" className="hidden sm:table-cell" />
+              <SortHeader col="category" label="קטגוריה" />
+              <SortHeader col="price" label="מחיר" />
+              <SortHeader col="stock" label="מלאי" className="hidden md:table-cell" />
+              <th className="px-4 py-3">פעולות</th>
+            </tr>
           </thead>
           <tbody className="divide-y divide-slate-50">
             {loading ? <tr><td colSpan={6} className="px-4 py-8 text-center text-slate-400">טוען...</td></tr>
-             : filtered.length === 0 ? <tr><td colSpan={6} className="px-4 py-8 text-center text-slate-400">אין מוצרים</td></tr>
-             : filtered.map(p => (
+             : paged.length === 0 ? <tr><td colSpan={6} className="px-4 py-8 text-center text-slate-400">אין מוצרים</td></tr>
+             : paged.map(p => (
               <tr key={p._id} className="hover:bg-slate-50">
                 <td className="px-4 py-3"><div className="flex items-center gap-2">{p.images?.[0] && <img src={p.images[0]} alt="" className="w-10 h-10 rounded-lg object-cover" />}<div><p className="font-semibold text-slate-800 text-[14px] line-clamp-1">{p.name}</p>{p.isKosher && <span className="text-[10px] text-emerald-600 font-bold">✡ כשר</span>}</div></div></td>
                 <td className="px-4 py-3 text-[13px] text-slate-500 hidden sm:table-cell">{p.brand}</td>
@@ -282,6 +370,20 @@ export default function AdminProducts() {
           </tbody>
         </table>
       </div>
+
+      {/* Pagination controls */}
+      {!isAll && totalPages > 1 && (
+        <div className="flex items-center justify-center gap-2 mt-4">
+          <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={curPage === 1}
+            className="px-3 py-1.5 rounded-lg text-[13px] font-bold bg-white border border-slate-200 disabled:opacity-40 hover:border-primary-300">→ הקודם</button>
+          <span className="text-[13px] text-slate-500 px-3">
+            עמוד {curPage} מתוך {totalPages} · {sorted.length} מוצרים
+          </span>
+          <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={curPage === totalPages}
+            className="px-3 py-1.5 rounded-lg text-[13px] font-bold bg-white border border-slate-200 disabled:opacity-40 hover:border-primary-300">הבא ←</button>
+        </div>
+      )}
+      {isAll && <p className="text-center text-[12px] text-slate-400 mt-4">מציג את כל {sorted.length} המוצרים</p>}
 
       {modal && <ProductModal product={modal === 'new' ? null : modal} onClose={() => setModal(null)} onSave={() => { setModal(null); load() }} />}
     </div>
