@@ -211,10 +211,10 @@ function VariantsEditor({ options, setOptions, variants, setVariants }) {
                     <tr key={i}>
                       <td className="py-1.5 px-2 font-semibold text-slate-700 whitespace-nowrap">{Object.values(v.attributes || {}).join(' · ') || '—'}</td>
                       <td className="py-1.5 px-2"><input value={v.sku || ''} onChange={e => updateVariant(i,'sku',e.target.value)} dir="ltr" className="input text-xs w-24" placeholder="SKU" /></td>
-                      <td className="py-1.5 px-2"><input type="number" value={v.price ?? ''} onChange={e => updateVariant(i,'price',e.target.value)} className="input text-xs w-20" placeholder="₪" /></td>
-                      <td className="py-1.5 px-2"><input type="number" value={v.originalPrice ?? ''} onChange={e => updateVariant(i,'originalPrice',e.target.value)} className="input text-xs w-20" placeholder="₪" /></td>
+                      <td className="py-1.5 px-2"><input type="number" step="0.01" value={v.price ?? ''} onChange={e => updateVariant(i,'price',e.target.value)} className="input text-xs w-20" placeholder="₪" /></td>
+                      <td className="py-1.5 px-2"><input type="number" step="0.01" value={v.originalPrice ?? ''} onChange={e => updateVariant(i,'originalPrice',e.target.value)} className="input text-xs w-20" placeholder="₪" /></td>
                       <td className="py-1.5 px-2"><input type="number" value={v.stock ?? 0} onChange={e => updateVariant(i,'stock',e.target.value)} className="input text-xs w-16" /></td>
-                      <td className="py-1.5 px-2"><input type="number" value={v.supplierPrice ?? ''} onChange={e => updateVariant(i,'supplierPrice',e.target.value)} className="input text-xs w-20" placeholder="₪" /></td>
+                      <td className="py-1.5 px-2"><input type="number" step="0.01" value={v.supplierPrice ?? ''} onChange={e => updateVariant(i,'supplierPrice',e.target.value)} className="input text-xs w-20" placeholder="₪" /></td>
                     </tr>
                   ))}
                 </tbody>
@@ -247,6 +247,42 @@ export default function AdminProducts() {
   const handleDelete = async (id, name) => {
     if (!confirm(`למחוק את "${name}"?`)) return
     try { await productAdmin.remove(id); toast.success('נמחק'); load() } catch { toast.error('שגיאה במחיקה') }
+  }
+
+  // Toggle "featured" (mise en avant manuelle) — mise à jour rapide
+  const toggleFeatured = async (p) => {
+    const next = !p.isFeatured
+    setProducts(prev => prev.map(x => x._id === p._id ? { ...x, isFeatured: next } : x))  // optimiste
+    try {
+      const fd = new FormData()
+      fd.append('isFeatured', next ? 'true' : 'false')
+      fd.append('existingImages', JSON.stringify(p.images || []))
+      await productAdmin.update(p._id, fd)
+      toast.success(next ? '⭐ נוסף להמלצות' : 'הוסר מההמלצות')
+    } catch {
+      setProducts(prev => prev.map(x => x._id === p._id ? { ...x, isFeatured: p.isFeatured } : x))  // rollback
+      toast.error('שגיאה')
+    }
+  }
+
+  // Édition inline du nombre de ventes (salesCount)
+  const [editingSales, setEditingSales] = useState(null)  // { id, value }
+  const saveSalesCount = async (p, newVal) => {
+    const val = Math.max(0, parseInt(newVal) || 0)
+    setEditingSales(null)
+    if (val === (p.salesCount ?? 0)) return  // pas de changement
+    const prevVal = p.salesCount ?? 0
+    setProducts(prev => prev.map(x => x._id === p._id ? { ...x, salesCount: val } : x))  // optimiste
+    try {
+      const fd = new FormData()
+      fd.append('salesCount', val)
+      fd.append('existingImages', JSON.stringify(p.images || []))
+      await productAdmin.update(p._id, fd)
+      toast.success(`מכירות עודכן ל-${val}`)
+    } catch {
+      setProducts(prev => prev.map(x => x._id === p._id ? { ...x, salesCount: prevVal } : x))  // rollback
+      toast.error('שגיאה')
+    }
   }
 
   // ── Export JSON / CSV ──
@@ -348,12 +384,14 @@ export default function AdminProducts() {
               <SortHeader col="category" label="קטגוריה" />
               <SortHeader col="price" label="מחיר" />
               <SortHeader col="stock" label="מלאי" className="hidden md:table-cell" />
+              <SortHeader col="salesCount" label="מכירות" className="hidden lg:table-cell" />
+              <th className="px-4 py-3">מומלץ</th>
               <th className="px-4 py-3">פעולות</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-50">
-            {loading ? <tr><td colSpan={6} className="px-4 py-8 text-center text-slate-400">טוען...</td></tr>
-             : paged.length === 0 ? <tr><td colSpan={6} className="px-4 py-8 text-center text-slate-400">אין מוצרים</td></tr>
+            {loading ? <tr><td colSpan={8} className="px-4 py-8 text-center text-slate-400">טוען...</td></tr>
+             : paged.length === 0 ? <tr><td colSpan={8} className="px-4 py-8 text-center text-slate-400">אין מוצרים</td></tr>
              : paged.map(p => (
               <tr key={p._id} className="hover:bg-slate-50">
                 <td className="px-4 py-3"><div className="flex items-center gap-2">{p.images?.[0] && <img src={p.images[0]} alt="" className="w-10 h-10 rounded-lg object-cover" />}<div><p className="font-semibold text-slate-800 text-[14px] line-clamp-1">{p.name}</p>{p.isKosher && <span className="text-[10px] text-emerald-600 font-bold">✡ כשר</span>}</div></div></td>
@@ -361,6 +399,27 @@ export default function AdminProducts() {
                 <td className="px-4 py-3"><span className="text-xs font-bold bg-primary-50 text-primary-600 px-2.5 py-1 rounded-full">{p.category}</span></td>
                 <td className="px-4 py-3 font-bold text-[14px]">₪{p.price?.toLocaleString()}</td>
                 <td className="px-4 py-3 text-[13px] hidden md:table-cell"><span className={p.stock > 0 ? 'text-green-600' : 'text-red-500'}>{p.stock ?? 0}</span></td>
+                <td className="px-4 py-3 text-[13px] hidden lg:table-cell">
+                  {editingSales?.id === p._id ? (
+                    <input
+                      type="number" min="0" autoFocus
+                      defaultValue={p.salesCount ?? 0}
+                      onBlur={e => saveSalesCount(p, e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter') e.target.blur(); if (e.key === 'Escape') setEditingSales(null) }}
+                      className="input text-xs w-16 py-1"
+                      onClick={e => e.stopPropagation()}
+                    />
+                  ) : (
+                    <button
+                      onClick={() => setEditingSales({ id: p._id })}
+                      className="font-bold text-slate-600 hover:text-primary-600 hover:bg-primary-50 rounded px-2 py-0.5 transition-colors"
+                      title="לחץ לעריכת מספר המכירות">
+                      {p.salesCount ?? 0} <span className="text-[10px] text-slate-300">✎</span>
+                    </button>
+                  )}
+                  {p.rating > 0 && <span className="text-[11px] text-amber-500 mr-1">★{p.rating}</span>}
+                </td>
+                <td className="px-4 py-3"><button onClick={() => toggleFeatured(p)} className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${p.isFeatured ? 'bg-amber-100 text-amber-500' : 'bg-slate-50 text-slate-300 hover:text-amber-400'}`} title={p.isFeatured ? 'מוצג בהמלצות' : 'הוסף להמלצות'}><Star className={`w-4 h-4 ${p.isFeatured ? 'fill-amber-400' : ''}`} /></button></td>
                 <td className="px-4 py-3"><div className="flex gap-1">
                   <button onClick={() => setModal(p)} className="w-8 h-8 rounded-lg border border-slate-200 flex items-center justify-center hover:border-primary-400 hover:text-primary-600"><Pencil className="w-3.5 h-3.5" /></button>
                   <button onClick={() => handleDelete(p._id, p.name)} className="w-8 h-8 rounded-lg border border-slate-200 flex items-center justify-center hover:border-red-300 hover:text-red-500"><Trash2 className="w-3.5 h-3.5" /></button>
@@ -417,7 +476,9 @@ function ProductModal({ product, onClose, onSave }) {
     ...product,
     tags: Array.isArray(product.tags) ? product.tags : [],
     isKosher: product.isKosher === true,
-  } : { name:'', brand:'', sku:'', category:'', description:'', price:'', originalPrice:'', supplierPrice:'', stock:0, tags:[], isKosher:false })
+    salesCount: product.salesCount ?? 0,
+    isFeatured: product.isFeatured === true,
+  } : { name:'', brand:'', sku:'', category:'', description:'', price:'', originalPrice:'', supplierPrice:'', stock:0, tags:[], isKosher:false, salesCount:0, isFeatured:false })
   const [photos, setPhotos] = useState((product?.images || []).map((url, i) => ({ url, isMain: i === 0, file: null })))
   // ── Variantes — SEUL système ──
   const [options, setOptions] = useState(() => Array.isArray(product?.options) ? product.options : [])
@@ -459,6 +520,8 @@ function ProductModal({ product, onClose, onSave }) {
       fd.append('options', JSON.stringify(options.filter(o => o.name?.trim() && o.values?.length)))
       fd.append('variants', JSON.stringify(variants.filter(v => v.sku?.trim() || Object.keys(v.attributes||{}).length)))
       fd.append('isKosher', form.isKosher ? 'true' : 'false')
+      fd.append('salesCount', form.salesCount ?? 0)
+      fd.append('isFeatured', form.isFeatured ? 'true' : 'false')
       const sorted = [...photos].sort((a, b) => b.isMain - a.isMain)
       fd.append('existingImages', JSON.stringify(sorted.filter(p => !p.file).map(p => p.url)))
       sorted.filter(p => p.file).forEach(p => fd.append('photos', p.file))
@@ -532,14 +595,14 @@ function ProductModal({ product, onClose, onSave }) {
 
           {/* Prices */}
           <div className="grid grid-cols-2 gap-4">
-            <div><label className="block text-xs font-bold text-slate-500 mb-1.5">מחיר (₪) *</label><input type="number" min="0" value={form.price || ''} onChange={set('price')} required className="input text-sm" /></div>
-            <div><label className="block text-xs font-bold text-slate-500 mb-1.5">מחיר מקורי</label><input type="number" min="0" value={form.originalPrice || ''} onChange={set('originalPrice')} className="input text-sm" placeholder="אופציונלי" /></div>
+            <div><label className="block text-xs font-bold text-slate-500 mb-1.5">מחיר (₪) *</label><input type="number" min="0" step="0.01" value={form.price || ''} onChange={set('price')} required className="input text-sm" /></div>
+            <div><label className="block text-xs font-bold text-slate-500 mb-1.5">מחיר מקורי</label><input type="number" min="0" step="0.01" value={form.originalPrice || ''} onChange={set('originalPrice')} className="input text-sm" placeholder="אופציונלי" /></div>
           </div>
 
           {/* Prix fournisseur */}
           <div className="bg-amber-50 border border-amber-200 rounded-xl p-3">
             <label className="block text-xs font-bold text-amber-700 mb-1.5">🔒 מחיר ספק <span className="font-normal text-amber-600">(פנימי — לא מוצג ללקוח)</span></label>
-            <input type="number" min="0" value={form.supplierPrice || ''} onChange={set('supplierPrice')} className="input text-sm max-w-[200px]" placeholder="עלות מהספק" />
+            <input type="number" min="0" step="0.01" value={form.supplierPrice || ''} onChange={set('supplierPrice')} className="input text-sm max-w-[200px]" placeholder="עלות מהספק" />
           </div>
 
           {/* Description */}
@@ -555,6 +618,24 @@ function ProductModal({ product, onClose, onSave }) {
                   <div className="flex items-center justify-center py-2 px-3 rounded-xl border-2 text-[12px] font-bold transition-all" style={{ background: form.isKosher === val ? bg : '#FAFAFA', borderColor: form.isKosher === val ? border : '#E2E8F0', color: form.isKosher === val ? color : '#94A3B8' }}>{label}</div>
                 </label>
               ))}
+            </div>
+          </div>
+
+          {/* Ventes (salesCount) + Mise en avant (featured) */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-bold text-slate-500 mb-1.5">מספר מכירות <span className="font-normal text-slate-400">(אוטומטי, ניתן לשנות ידנית)</span></label>
+              <input type="number" min="0" value={form.salesCount ?? 0} onChange={set('salesCount')} className="input text-sm" />
+              <p className="text-[11px] text-slate-400 mt-1">מתעדכן אוטומטית בכל מכירה. שנה כדי "לקדם" מוצר.</p>
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-500 mb-1.5">מוצר מומלץ</label>
+              <button type="button" onClick={() => setForm(p => ({ ...p, isFeatured: !p.isFeatured }))}
+                className={`w-full flex items-center justify-center gap-2 py-2 px-3 rounded-xl border-2 text-[12px] font-bold transition-all ${form.isFeatured ? 'bg-amber-50 border-amber-300 text-amber-600' : 'bg-slate-50 border-slate-200 text-slate-400'}`}>
+                <Star className={`w-4 h-4 ${form.isFeatured ? 'fill-amber-400' : ''}`} />
+                {form.isFeatured ? 'מוצג בהמלצות ⭐' : 'הוסף להמלצות'}
+              </button>
+              <p className="text-[11px] text-slate-400 mt-1">מקפיץ את המוצר לראש "רבי המכר".</p>
             </div>
           </div>
 

@@ -19,9 +19,9 @@ export default async function HomePage() {
   const [newP, kosherP, topP, bestP, saleP] = await Promise.all([
     productService.getAll({ sort:'-createdAt',   limit:10 }),
     productService.getAll({ isKosher:'true', sort:'-reviewCount', limit:12 }),
-    productService.getAll({ sort:'-rating',      limit:12 }),
-    productService.getAll({ sort:'-reviewCount', limit:10 }),
-    productService.getAll({ sale:'true',         limit:10 }),
+    productService.getTopRated(12),        // ← vraie route top-rated (featured + rating)
+    productService.getBestsellers(10),     // ← vraie route bestsellers (featured + ventes)
+    productService.getAll({ sale:'true',   limit:10 }),
   ])
 
   const newProducts    = newP?.products    || []

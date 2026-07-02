@@ -31,11 +31,22 @@ const productService = {
     return data.product || data
   },
 
+  async getBestsellers(limit = 10) {
+    const data = await apiGet(withQuery('/products/bestsellers', { limit }))
+    return data || { products: [] }
+  },
+ 
+  async getTopRated(limit = 12) {
+    const data = await apiGet(withQuery('/products/top-rated', { limit }))
+    return data || { products: [] }
+  },
+
   async getRecommended(ids = []) {
     if (!ids.length) return { products: [] }
     const data = await apiGet(withQuery('/products/recommended/', { ids: ids.join(',') }))
     return data || { products: [] }
   },
+
 
   async getRelated(id) {
     const data = await apiGet(`/products/${id}/related`)

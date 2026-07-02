@@ -112,6 +112,37 @@ def import_excel():
     return jsonify({'imported': imported, 'errors': errors})
 
 
+
+@products_bp.route('/bestsellers', methods=['GET'])
+def bestsellers():
+    from app.db import get_db
+    limit = min(24, max(1, int(request.args.get('limit', 8))))
+    db = get_db()
+    # Featured d'abord, puis par ventes décroissantes, puis récents
+    cursor = db['products'].find({}).sort([
+        ('isFeatured', -1),   # featured en tête
+        ('salesCount', -1),   # puis meilleures ventes
+        ('createdAt', -1),    # fallback : récents (si tout à 0)
+    ]).limit(limit)
+    products = [ProductModel.serialize(p) for p in cursor]
+    return jsonify({'products': products})
+ 
+ 
+@products_bp.route('/top-rated', methods=['GET'])
+def top_rated():
+    from app.db import get_db
+    limit = min(24, max(1, int(request.args.get('limit', 8))))
+    db = get_db()
+    cursor = db['products'].find({}).sort([
+        ('isFeatured', -1),   # featured en tête
+        ('rating', -1),       # puis meilleure note
+        ('salesCount', -1),   # départage par ventes
+        ('createdAt', -1),    # fallback : récents
+    ]).limit(limit)
+    products = [ProductModel.serialize(p) for p in cursor]
+    return jsonify({'products': products})
+ 
+ 
 # ── GET /api/products/:id ─────────────────────────────────────────────────────
 @products_bp.route('/<product_id>', methods=['GET'])
 def get_product(product_id):
@@ -257,7 +288,6 @@ def meta_colors():
     if not colors:
         colors = ['שחור','לבן','כסף','זהב','כחול','אדום','ירוק','אפור','ורוד','סגול']
     return jsonify({'colors': colors})
-
 
 
 # ── POST /api/products/import-json ────────────────────────────────────────────
@@ -415,5 +445,3 @@ def export_products():
             download_name=f'tataphone_products_{stamp}.json'
         )
  
-
-

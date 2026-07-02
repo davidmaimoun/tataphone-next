@@ -368,6 +368,7 @@ def paypal_create():
         })
     pp_data = pp_resp.json()
     approve = next((l['href'] for l in pp_data.get('links',[]) if l['rel']=='approve'), None)
+    _increment_sales(order_id)
     return jsonify({'approvalUrl': approve, 'paypalOrderId': pp_data.get('id')})
 
 
@@ -494,6 +495,9 @@ def grow_webhook():
                 {'_id': ObjectId(order_id)},
                 {'$set': {'paymentStatus': 'paid', 'paymentMethod': 'grow'}}
             )
+
+            _increment_sales(order_id)
+
             print(f"[GROW] commande {order_id} marquée payée ✓")
         except Exception as e:
             print(f'[GROW] order update failed: {e}')
@@ -554,3 +558,42 @@ def track_guest():
         upsert=True
     )
     return jsonify({'ok': True})
+
+ 
+def _increment_sales(order_id):
+    """Incrémente salesCount de chaque produit de la commande (unités vendues).
+    Appelé UNE fois quand la commande passe payée. Idempotent via flag salesCounted."""
+    try:
+        from app.db import get_db
+        from bson import ObjectId
+        db = get_db()
+        order = db['orders'].find_one({'_id': ObjectId(order_id)})
+        if not order:
+            return
+        # Protection : ne compter qu'une seule fois par commande
+        if order.get('salesCounted'):
+            print(f"[SALES] commande {order_id} déjà comptée — skip")
+            return
+        for item in order.get('items', []):
+            pid = item.get('product', '')
+            qty = int(item.get('qty', 1) or 1)
+            if not pid:
+                continue
+            try:
+                db['products'].update_one(
+                    {'_id': ObjectId(pid)},
+                    {'$inc': {'salesCount': qty}}
+                )
+            except Exception as e:
+                print(f"[SALES] produit {pid} inc failed: {e}")
+        # Marquer la commande comme comptée (évite double comptage sur rappels Grow)
+        db['orders'].update_one({'_id': ObjectId(order_id)}, {'$set': {'salesCounted': True}})
+        print(f"[SALES] ventes comptées pour commande {order_id}")
+    except Exception as e:
+        print(f"[SALES] increment failed: {e}")
+ 
+# ── DANS grow_webhook, après avoir marqué la commande payée, AJOUTE :
+#      _increment_sales(order_id)
+#
+# ── DANS paypal_capture, après le update_status 'approved', AJOUTE :
+#      _increment_sales(our_order_id)

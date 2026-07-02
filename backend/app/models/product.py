@@ -24,6 +24,8 @@ def create_indexes():
     col.create_index('variants.sku', sparse=True)   # ← NOUVEAU : matcher une variante par SKU (sync Priority)
     col.create_index('createdAt')
     col.create_index('rating')
+    col.create_index('salesCount')
+    col.create_index('isFeatured')
 
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
@@ -259,6 +261,8 @@ def create_product(data: dict) -> dict:
         'specs':         _parse_specs(data.get('specs', '{}')),
         'sizes':         _parse_list(data.get('selectedSizes', '[]')),
         'supplierPrice': (float(data.get('supplierPrice')) if data.get('supplierPrice') not in (None,'','None') else None),
+        'salesCount':    int(data.get('salesCount', 0) or 0),
+        'isFeatured':    _to_bool(data.get('isFeatured', False), False),
         # ── variantes ──
         'options':       _parse_options(data.get('options', '[]')),
         'variants':      _parse_variants(data.get('variants', '[]')),
@@ -294,6 +298,9 @@ def update_product(product_id: str, data: dict) -> dict:
     if 'supplierPrice' in data:
         try: data['supplierPrice'] = float(data['supplierPrice']) if data['supplierPrice'] not in (None,'','None') else None
         except (ValueError, TypeError): data['supplierPrice'] = None
+    if 'salesCount' in data:
+        try: data['salesCount'] = int(data['salesCount'] or 0)
+        except (ValueError, TypeError): data['salesCount'] = 0
 
     # Recompute discount (cas sans variantes)
     try:
@@ -378,6 +385,8 @@ def serialize(p: dict, admin: bool = False) -> dict:
         'reviewCount':   p.get('reviewCount', 0),
         'isNew':         p.get('isNew', False),
         'isTopRated':    p.get('isTopRated', False),
+        'salesCount':    p.get('salesCount', 0),
+        'isFeatured':    p.get('isFeatured', False),
         'tags':          p.get('tags', []),
         'colors':        p.get('colors', []),
         'note':          p.get('note', ''),
@@ -412,3 +421,5 @@ def _serialize_variants(variants: list, admin: bool) -> list:
             item['supplierPrice'] = v.get('supplierPrice')
         out.append(item)
     return out
+
+
