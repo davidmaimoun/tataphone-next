@@ -154,38 +154,65 @@ def create_product():
     return jsonify(p), 201
 
 
-# ── PUT /api/products/:id ─────────────────────────────────────────────────────
+# ── DELETE /api/products/:id ── (REMPLACE l'existante)
+@products_bp.route('/<product_id>', methods=['DELETE'])
+@jwt_required()
+def delete_product(product_id):
+    if not _is_admin():
+        return jsonify({'error': 'Admin only'}), 403
+    # Récupère le produit AVANT suppression pour connaître ses images
+    product = ProductModel.get_by_id(product_id)
+    ProductModel.delete_product(product_id)
+    # Supprime les images du bucket R2
+    if product:
+        from app.services.r2_storage import delete_from_r2
+        for img_url in (product.get('images') or []):
+            try:
+                delete_from_r2(img_url)
+            except Exception as e:
+                print(f"[R2] delete image failed: {e}")
+    return jsonify({'deleted': True})
+ 
+ 
+# ── PUT /api/products/:id ── (REMPLACE l'existante)
+#  Supprime du bucket les images RETIRÉES lors de l'update.
 @products_bp.route('/<product_id>', methods=['PUT'])
 @jwt_required()
 def update_product(product_id):
     if not _is_admin():
         return jsonify({'error': 'Admin only'}), 403
-
+ 
     import json
+    from app.services.r2_storage import delete_from_r2
     data = request.form.to_dict() if request.form else (request.get_json() or {})
-
-    print(f"[UPDATE] product_id={product_id}")
-    print(f"[UPDATE] raw data keys: {list(data.keys())}")
-    print(f"[UPDATE] colors={data.get('colors')!r}")
-    print(f"[UPDATE] sizes={data.get('sizes')!r}")
-    print(f"[UPDATE] specs={data.get('specs')!r}")
-    print(f"[UPDATE] note={data.get('note')!r}")
-
-    # Keep existing images that weren't removed
+ 
+    # Images existantes AVANT update (pour détecter celles retirées)
+    old_product = ProductModel.get_by_id(product_id)
+    old_images  = set((old_product or {}).get('images', []))
+ 
+    # Images conservées (envoyées par le front)
     existing = json.loads(data.pop('existingImages', '[]'))
     new_imgs = list(existing)
-
-    # Upload new photos
+ 
+    # Upload nouvelles photos
     for f in request.files.getlist('photos'):
         if f and _allowed_img(f.filename):
             new_imgs.append(_save_image(f))
-
+ 
     data['images'] = new_imgs
     p = ProductModel.update_product(product_id, data)
     _sync_meta(p)
-    print(f"[UPDATE] saved colors={p.get('colors')}, sizes={p.get('sizes')}")
+ 
+    # ── Nettoyage : supprimer du bucket les images qui ne sont plus utilisées ──
+    kept = set(new_imgs)
+    removed = old_images - kept
+    for img_url in removed:
+        try:
+            delete_from_r2(img_url)
+        except Exception as e:
+            print(f"[R2] delete removed image failed: {e}")
+ 
     return jsonify(p)
-
 
 # ── POST /api/products/:id/photos ─────────────────────────────────────────────
 @products_bp.route('/<product_id>/photos', methods=['POST'])
@@ -205,16 +232,6 @@ def upload_photos(product_id):
     ProductModel.add_images(product_id, urls)
     p = ProductModel.get_by_id(product_id)
     return jsonify({'images': p['images']})
-
-
-# ── DELETE /api/products/:id ──────────────────────────────────────────────────
-@products_bp.route('/<product_id>', methods=['DELETE'])
-@jwt_required()
-def delete_product(product_id):
-    if not _is_admin():
-        return jsonify({'error': 'Admin only'}), 403
-    ProductModel.delete_product(product_id)
-    return jsonify({'deleted': True})
 
 
 # ── GET /api/products/meta/brands ─────────────────────────────────────────────
